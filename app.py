@@ -46,10 +46,15 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
 # Configure session to be more robust
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_SECURE'] = is_production  # Set to True in production with HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
+# Force HTTPS for external URLs when running on Railway
+if is_production:
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    print("Forcing HTTPS for external URLs in production mode")
 
 # Initialize database
 db.init_app(app)
@@ -61,6 +66,14 @@ login_manager.login_view = 'login'
 
 # Initialize OAuth
 oauth = OAuth(app)
+
+# Helper function to get the correct redirect URI with HTTPS in production
+def get_redirect_uri(endpoint):
+    uri = url_for(endpoint, _external=True)
+    if is_production and uri.startswith('http:'):
+        uri = uri.replace('http:', 'https:', 1)
+        print(f"Forced HTTPS for redirect URI: {uri}")
+    return uri
 
 # Configure Google OAuth with environment-specific settings
 google_config = {
@@ -138,7 +151,7 @@ def google_login():
         print("ERROR: Google OAuth client secret is missing or empty!")
         return render_template('login.html', error='Google login is not properly configured (missing client secret). Please contact the administrator.')
     
-    redirect_uri = url_for('google_auth', _external=True)
+    redirect_uri = get_redirect_uri('google_auth')
     print(f"Google OAuth redirect URI: {redirect_uri}")
     print(f"Request host: {request.host}")
     print(f"Request scheme: {request.scheme}")
@@ -923,7 +936,7 @@ def import_export_page():
 @app.route('/debug/oauth-uri')
 def debug_oauth_uri():
     """Debug route to show the exact OAuth redirect URI"""
-    redirect_uri = url_for('google_auth', _external=True)
+    redirect_uri = get_redirect_uri('google_auth')
     railway_url = os.environ.get('RAILWAY_STATIC_URL', 'Not set')
     port = os.environ.get('PORT', 'Not set')
     host = os.environ.get('HOST', 'Not set')
