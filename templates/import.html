@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Known Characters - Character Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .import-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .import-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .import-textarea {
+            min-height: 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1.2rem;
+        }
+        
+        .import-button {
+            padding: 12px 20px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .import-button:hover {
+            background-color: #27ae60;
+        }
+        
+        .result-container {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .result-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .result-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .character-preview {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .character-preview span {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            font-size: 1.5rem;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom-color: white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .file-upload {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .file-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .export-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .export-button {
+            padding: 12px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            width: fit-content;
+        }
+        
+        .export-button:hover {
+            background-color: #2980b9;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/master.png') }}" alt="Character Master Logo" class="logo">
+            </div>
+            <h1>Import & Export Characters</h1>
+            <p>Manage your known Chinese characters</p>
+        </header>
+
+        <main>
+            <div class="import-container">
+                <div class="tabs">
+                    <div class="tab active" data-tab="paste">Paste Characters</div>
+                    <div class="tab" data-tab="file">Import File</div>
+                    <div class="tab" data-tab="export">Export</div>
+                </div>
+                
+                <div id="paste-tab" class="tab-content active">
+                    <div class="import-form">
+                        <label for="characters">Paste Chinese characters below (with or without spaces):</label>
+                        <textarea id="characters" class="import-textarea" placeholder="E.g. 我你好是的"></textarea>
+                        
+                        <div class="character-preview" id="character-preview"></div>
+                        
+                        <button id="import-button" class="import-button">Add as Known Characters</button>
+                    </div>
+                </div>
+                
+                <div id="file-tab" class="tab-content">
+                    <div class="file-upload">
+                        <p>Upload a text file containing Chinese characters:</p>
+                        <form id="file-upload-form" enctype="multipart/form-data">
+                            <div class="file-input-container">
+                                <input type="file" id="character-file" name="file" accept=".txt">
+                                <button type="submit" class="import-button">Upload & Import</button>
+                            </div>
+                        </form>
+                        <p>The file should contain Chinese characters. Spaces, line breaks, and punctuation will be ignored.</p>
+                    </div>
+                </div>
+                
+                <div id="export-tab" class="tab-content">
+                    <div class="export-container">
+                        <p>Export your known characters as a text file:</p>
+                        <a href="/api/export-known" class="export-button">Download Known Characters</a>
+                        <p>The exported file will contain all characters you've marked as "Known", sorted by frequency (most common first).</p>
+                        <p>You can edit this file and re-import it later.</p>
+                    </div>
+                </div>
+                
+                <div id="result-container" class="result-container"></div>
+                
+                <div class="action-buttons">
+                    <a href="/" class="back-link">← Back to Flashcards</a>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Character Master - A Chinese Character Learning App</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const charactersTextarea = document.getElementById('characters');
+            const importButton = document.getElementById('import-button');
+            const resultContainer = document.getElementById('result-container');
+            const characterPreview = document.getElementById('character-preview');
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            const fileUploadForm = document.getElementById('file-upload-form');
+            
+            // Tab switching
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    tab.classList.add('active');
+                    const tabId = tab.getAttribute('data-tab');
+                    document.getElementById(`${tabId}-tab`).classList.add('active');
+                    
+                    // Hide result container when switching tabs
+                    resultContainer.style.display = 'none';
+                });
+            });
+            
+            // Update character preview as user types
+            charactersTextarea.addEventListener('input', updatePreview);
+            
+            function updatePreview() {
+                const text = charactersTextarea.value;
+                characterPreview.innerHTML = '';
+                
+                // Extract unique characters
+                const uniqueChars = [...new Set(text.split('').filter(char => char.trim() && !char.match(/[\s\d\p{P}]/u)))];
+                
+                // Show preview
+                uniqueChars.forEach(char => {
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    characterPreview.appendChild(span);
+                });
+            }
+            
+            // Handle import button click
+            importButton.addEventListener('click', async () => {
+                const characters = charactersTextarea.value;
+                
+                if (!characters.trim()) {
+                    showResult('Please enter at least one character.', false);
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/bulk-import', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            characters: characters
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        showResult(data.message, true);
+                        // Clear the textarea after successful import
+                        charactersTextarea.value = '';
+                        characterPreview.innerHTML = '';
+                    } else {
+                        showResult(data.error || 'Failed to import characters.', false);
+                    }
+                } catch (error) {
+                    console.error('Error importing characters:', error);
+                    showResult('An error occurred while importing characters.', false);
+                }
+            });
+            
+            // Handle file upload form submission
+            fileUploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const fileInput = document.getElementById('character-file');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    showResult('Please select a file to upload.', false);
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const response = await fetch('/api/import-file', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        showResult(data.message, true);
+                        // Clear the file input after successful import
+                        fileInput.value = '';
+                    } else {
+                        showResult(data.error || 'Failed to import characters from file.', false);
+                    }
+                } catch (error) {
+                    console.error('Error importing characters from file:', error);
+                    showResult('An error occurred while importing characters from file.', false);
+                }
+            });
+            
+            function showResult(message, isSuccess) {
+                resultContainer.textContent = message;
+                resultContainer.style.display = 'block';
+                
+                if (isSuccess) {
+                    resultContainer.className = 'result-container result-success';
+                } else {
+                    resultContainer.className = 'result-container result-error';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

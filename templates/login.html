@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Character Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .login-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .login-title {
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+        
+        .form-group {
+            text-align: left;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .login-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+        
+        .login-button:hover {
+            background-color: #c0392b;
+        }
+        
+        .google-login-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            margin: 20px auto;
+            max-width: 300px;
+        }
+        
+        .google-login-button:hover {
+            background-color: #357ae8;
+        }
+        
+        .google-login-button img {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+        }
+        
+        .login-divider {
+            display: flex;
+            align-items: center;
+            max-width: 300px;
+            margin: 20px auto;
+            color: #777;
+        }
+        
+        .login-divider::before,
+        .login-divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .login-divider::before {
+            margin-right: 10px;
+        }
+        
+        .login-divider::after {
+            margin-left: 10px;
+        }
+        
+        .login-description {
+            margin: 20px 0;
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .login-features {
+            text-align: left;
+            margin: 30px 0;
+            padding: 0 20px;
+        }
+        
+        .login-features li {
+            margin-bottom: 10px;
+            color: #555;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #ffeaea;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .error-message.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/master.png') }}" alt="Character Master Logo" class="logo">
+            </div>
+            <h1>Character Master</h1>
+            <p>Learn Chinese characters with spaced repetition</p>
+        </header>
+
+        <main>
+            <div class="login-container">
+                <h2 class="login-title">Welcome to Character Master</h2>
+                
+                <p class="login-description">
+                    Character Master helps you learn Chinese characters efficiently using a spaced repetition system.
+                    Sign in to track your progress and continue your learning journey.
+                </p>
+                
+                <div class="login-features">
+                    <h3>Features:</h3>
+                    <ul>
+                        <li>Learn the most common Chinese characters first</li>
+                        <li>Spaced repetition algorithm for efficient learning</li>
+                        <li>Track your progress across devices</li>
+                        <li>Import and export your known characters</li>
+                    </ul>
+                </div>
+                
+                {% if error %}
+                <div class="error-message visible">
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                <a href="{{ url_for('google_login') }}" class="google-login-button">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo">
+                    Sign in with Google
+                </a>
+                
+                <div class="login-divider">OR</div>
+                
+                <form method="POST" action="{{ url_for('login') }}" class="login-form">
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" required placeholder="Enter your email">
+                    </div>
+                    <button type="submit" class="login-button">Sign In with Email</button>
+                </form>
+            </div>
+        </main>
+
+        <footer>
+            <p>Character Master - A Chinese Character Learning App</p>
+        </footer>
+    </div>
+</body>
+</html>

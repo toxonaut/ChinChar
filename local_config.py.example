@@ -1,0 +1,10 @@
+# Example local configuration file
+# Copy this file to local_config.py and fill in your credentials
+# local_config.py should be in .gitignore to prevent committing credentials
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = "your-google-client-id"
+GOOGLE_CLIENT_SECRET = "your-google-client-secret"
+
+# Other configuration settings
+DEBUG = True

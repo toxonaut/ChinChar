@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Character Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .character-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .character-card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .character-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .character-hanzi {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .character-pinyin {
+            color: #e74c3c;
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+        
+        .character-meaning {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 10px;
+            height: 40px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .character-meta {
+            font-size: 0.8rem;
+            color: #777;
+        }
+        
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        
+        .back-button:hover {
+            background-color: #2980b9;
+        }
+        
+        .empty-message {
+            text-align: center;
+            padding: 50px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            max-width: 150px;
+            height: auto;
+        }
+        
+        .assessment-history {
+            margin-top: 10px;
+        }
+        
+        .assessment-counts {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+        
+        .know-count {
+            color: #2ecc71;
+        }
+        
+        .unsure-count {
+            color: #f1c40f;
+        }
+        
+        .dont-know-count {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/master.png') }}" alt="Character Master Logo" class="logo">
+            </div>
+            <h1>{{ title }}</h1>
+        </header>
+
+        <main>
+            <a href="/" class="back-button">← Back to Flashcards</a>
+            
+            {% if characters %}
+                <div class="character-list">
+                    {% for character in characters %}
+                        <div class="character-card">
+                            <div class="character-hanzi">{{ character.hanzi }}</div>
+                            <div class="character-pinyin">{{ character.pinyin }}</div>
+                            <div class="character-meaning">{{ character.meaning }}</div>
+                            <div class="character-meta">
+                                Reviewed: {{ character.review_count }} times<br>
+                                Last: {{ character.last_reviewed.strftime('%Y-%m-%d') }}
+                            </div>
+                            <div class="assessment-history">
+                                <div class="assessment-counts">
+                                    <span class="know-count">Know: {{ character.know_count }}</span>
+                                    <span class="unsure-count">Unsure: {{ character.unsure_count }}</span>
+                                    <span class="dont-know-count">Don't Know: {{ character.dont_know_count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-message">
+                    <h2>No characters in this category yet</h2>
+                    <p>As you review characters, they'll appear here based on your familiarity ratings.</p>
+                </div>
+            {% endif %}
+        </main>
+
+        <footer>
+            <p>Character Master - A Chinese Character Learning App</p>
+        </footer>
+    </div>
+</body>
+</html>

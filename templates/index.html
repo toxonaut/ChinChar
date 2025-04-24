@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Master - Chinese Character Flashcards</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/master.png') }}" alt="Character Master Logo" class="logo">
+            </div>
+            <h1>Character Master</h1>
+            <p>Learn Chinese characters with spaced repetition</p>
+            
+            <div class="user-info">
+                {% if current_user.is_authenticated %}
+                <div class="user-profile">
+                    {% if current_user.profile_pic %}
+                    <img src="{{ current_user.profile_pic }}" alt="{{ current_user.name }}" class="profile-pic">
+                    {% endif %}
+                    <span class="user-name">{{ current_user.name }}</span>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <main>
+            <div class="stats-container">
+                <div class="stat">
+                    <span id="know-count">0</span>
+                    <label>Know</label>
+                    <a href="/known" class="stat-link">View List</a>
+                </div>
+                <div class="stat">
+                    <span id="unsure-count">0</span>
+                    <label>Unsure</label>
+                    <a href="/unsure" class="stat-link">View List</a>
+                </div>
+                <div class="stat">
+                    <span id="dont-know-count">0</span>
+                    <label>Don't Know</label>
+                    <a href="/unknown" class="stat-link">View List</a>
+                </div>
+                <div class="stat">
+                    <span id="progress-percent">0%</span>
+                    <label>Progress</label>
+                    <div class="import-export-links">
+                        <a href="/import-export" class="stat-link">Import/Export</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flashcard-container">
+                <div class="flashcard" id="flashcard">
+                    <div class="flashcard-front">
+                        <div class="character" id="character-hanzi"></div>
+                    </div>
+                    <div class="flashcard-back">
+                        <div class="character-large" id="character-hanzi-back"></div>
+                        <div class="pinyin" id="character-pinyin"></div>
+                        <div class="meaning" id="character-meaning"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="buttons-container" id="answer-buttons">
+                <button class="btn btn-red" id="btn-dont-know" data-url="/unknown">Don't Know</button>
+                <button class="btn btn-yellow" id="btn-unsure" data-url="/unsure">Unsure</button>
+                <button class="btn btn-green" id="btn-know" data-url="/known">Know</button>
+            </div>
+        </main>
+
+        <footer>
+            <p>Character Master - A Chinese Character Learning App</p>
+            <div class="import-export-container">
+                <a href="/api/export-progress" class="footer-link">Export All Progress</a>
+                <a href="/api/export-known" class="footer-link">Export Known Only</a>
+            </div>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
