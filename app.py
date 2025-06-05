@@ -958,13 +958,18 @@ def debug_oauth_uri():
 
 # Create tables within application context
 with app.app_context():
-    # Drop all tables and recreate them to update the schema
-    print("Dropping all tables to update schema...")
-    db.drop_all()
+    # Check if we're in development or production
+    is_dev_mode = not is_production and os.environ.get('FLASK_ENV') != 'production'
     
-    # Recreate all tables with the updated schema
-    print("Creating tables with updated schema...")
-    db.create_all()
+    if is_dev_mode and os.environ.get('RESET_DB') == 'true':
+        # Only drop tables in development mode and when explicitly requested
+        print("Development mode with RESET_DB=true: Dropping all tables to update schema...")
+        db.drop_all()
+        db.create_all()
+    else:
+        # In production or normal development, just create tables if they don't exist
+        print("Creating tables if they don't exist...")
+        db.create_all()
     
     # Initialize the database with characters from characters.txt
     try:
