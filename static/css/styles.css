@@ -191,6 +191,11 @@ header h1 {
     color: white;
 }
 
+.btn-gray {
+    background-color: #95a5a6;
+    color: white;
+}
+
 /* User profile styles */
 .user-info {
     margin-top: 15px;

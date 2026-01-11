@@ -45,6 +45,26 @@ class UserProgress(db.Model):
     def __repr__(self):
         return f'<UserProgress user_id={self.user_id} character_id={self.character_id} familiarity={self.familiarity}>'
 
+class UserCharacterTuning(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    character_id = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False)
+    rank_penalty = db.Column(db.Integer, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'character_id', name='uq_user_character_tuning_user_character'),
+    )
+
+    character = db.relationship('Character', backref=db.backref('tuning', lazy=True))
+    user = db.relationship('User', backref=db.backref('character_tuning', lazy=True))
+
+    def __repr__(self):
+        return f'<UserCharacterTuning user_id={self.user_id} character_id={self.character_id} rank_penalty={self.rank_penalty}>'
+
+def get_rank_penalties(user_id):
+    records = UserCharacterTuning.query.filter_by(user_id=user_id).all()
+    return {r.character_id: r.rank_penalty for r in records}
+
 def get_next_character(user_id):
     """
     Get the next character to review based on frequency and familiarity.
@@ -60,9 +80,11 @@ def get_next_character(user_id):
             
         # Get all characters that have been reviewed by this user and their familiarity
         progress_records = UserProgress.query.filter_by(user_id=user_id).all()
-        
+
         # Create a dictionary of character_id -> familiarity for quick lookup
         familiarity_dict = {p.character_id: p.familiarity for p in progress_records}
+
+        rank_penalties = get_rank_penalties(user_id)
         
         # Get all character IDs that have been marked as known (familiarity = 2)
         known_ids = [char_id for char_id, familiarity in familiarity_dict.items() if familiarity == 2]
@@ -81,8 +103,9 @@ def get_next_character(user_id):
         
         # For beginners (fewer than 20 characters reviewed), focus on the absolute most common characters
         if reviewed_count < 20:
-            # Get the 20 most common characters (by rank)
-            top_characters = Character.query.order_by(Character.rank.asc()).limit(20).all()
+            base_candidates = Character.query.order_by(Character.rank.asc()).limit(200).all()
+            base_candidates.sort(key=lambda c: (c.rank + rank_penalties.get(c.id, 0), c.rank))
+            top_characters = base_candidates[:20]
             top_ids = [char.id for char in top_characters]
             
             # First priority: Show unreviewed characters from the top 20
@@ -123,10 +146,12 @@ def get_next_character(user_id):
             UserProgress.familiarity == 2
         ).subquery()
         
-        # Then, get the 100 most common characters that aren't in the known list
-        next_characters = Character.query.filter(
+        base_candidates = Character.query.filter(
             ~Character.id.in_(known_characters_subquery)
-        ).order_by(Character.rank.asc()).limit(100).all()
+        ).order_by(Character.rank.asc()).limit(300).all()
+
+        base_candidates.sort(key=lambda c: (c.rank + rank_penalties.get(c.id, 0), c.rank))
+        next_characters = base_candidates[:100]
         
         if next_characters:
             # Filter out the last shown character if possible

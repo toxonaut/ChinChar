@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify, make_response, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
-from models import db, Character, UserProgress, get_next_character, update_progress, User
+from models import db, Character, UserProgress, get_next_character, update_progress, User, UserCharacterTuning
 import random
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import json
@@ -463,6 +463,41 @@ def update_user_progress():
         print(f"Error in update_user_progress: {e}")
         traceback.print_exc()
         return jsonify({'error': 'An error occurred while updating progress'}), 500
+
+@app.route('/api/character/demote', methods=['POST'])
+@login_required
+def demote_character():
+    """Increase per-user rank penalty so the character is shown less often"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        character_id = data.get('character_id')
+        if not character_id:
+            return jsonify({'error': 'No character_id provided'}), 400
+
+        character = Character.query.get(character_id)
+        if not character:
+            return jsonify({'error': 'Character not found'}), 404
+
+        tuning = UserCharacterTuning.query.filter_by(
+            user_id=current_user.id,
+            character_id=character_id
+        ).first()
+
+        if not tuning:
+            tuning = UserCharacterTuning(user_id=current_user.id, character_id=character_id, rank_penalty=0)
+            db.session.add(tuning)
+
+        tuning.rank_penalty += 50
+        db.session.commit()
+
+        return jsonify({'success': True, 'rank_penalty': tuning.rank_penalty})
+    except Exception as e:
+        app.logger.error(f"Error demoting character: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'An error occurred while updating character tuning'}), 500
 
 @app.route('/api/bulk-import', methods=['POST'])
 @login_required
@@ -977,8 +1012,15 @@ with app.app_context():
         if Character.query.count() == 0:
             print("Initializing database with characters from characters.txt...")
             characters_file = os.path.join(os.path.dirname(__file__), 'characters.txt')
+            print(f"Looking for characters file at: {characters_file}")
+            
+            # List files in the current directory for debugging
+            print(f"Files in {os.path.dirname(__file__)}:")
+            for file in os.listdir(os.path.dirname(__file__)):
+                print(f"  - {file}")
             
             if os.path.exists(characters_file):
+                print(f"Characters file found, loading data...")
                 with open(characters_file, 'r', encoding='utf-8') as f:
                     count = 0
                     for line in f:

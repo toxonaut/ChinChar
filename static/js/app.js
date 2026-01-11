@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDontKnow = document.getElementById('btn-dont-know');
     const btnUnsure = document.getElementById('btn-unsure');
     const btnKnow = document.getElementById('btn-know');
+    const btnDemote = document.getElementById('btn-demote');
     
     // Stats elements
     const knowCount = document.getElementById('know-count');
@@ -29,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btnDontKnow.addEventListener('click', (e) => handleAnswer(0, e));
     btnUnsure.addEventListener('click', (e) => handleAnswer(1, e));
     btnKnow.addEventListener('click', (e) => handleAnswer(2, e));
+    if (btnDemote) {
+        btnDemote.addEventListener('click', (e) => handleDemote(e));
+    }
     
     // Functions
     async function init() {
@@ -198,6 +202,53 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error submitting answer:', error);
             alert('Error submitting answer. Please try again.');
+        }
+    }
+
+    async function handleDemote(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!currentCharacter) {
+            console.error('No current character to demote');
+            return;
+        }
+
+        if (btnDemote) {
+            btnDemote.disabled = true;
+        }
+
+        try {
+            const response = await fetch('/api/character/demote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ character_id: currentCharacter.id })
+            });
+
+            const responseText = await response.text();
+            let data;
+            try {
+                data = responseText ? JSON.parse(responseText) : null;
+            } catch (jsonError) {
+                console.error('Error parsing demote JSON response:', jsonError);
+                throw new Error('Failed to parse server response');
+            }
+
+            if (!response.ok || (data && data.error)) {
+                throw new Error((data && data.error) || 'Failed to demote character');
+            }
+
+            flashcard.classList.remove('flipped');
+            await loadNextCharacter();
+        } catch (error) {
+            console.error('Error demoting character:', error);
+            alert('Error updating character frequency. Please try again.');
+        } finally {
+            if (btnDemote) {
+                btnDemote.disabled = false;
+            }
         }
     }
     
