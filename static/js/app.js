@@ -9,6 +9,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnUnsure = document.getElementById('btn-unsure');
     const btnKnow = document.getElementById('btn-know');
     const btnDemote = document.getElementById('btn-demote');
+    const btnAiDescription = document.getElementById('btn-ai-description');
+
+    const aiModal = document.getElementById('ai-modal');
+    const aiModalTitle = document.getElementById('ai-modal-title');
+    const aiModalBody = document.getElementById('ai-modal-body');
+    const aiModalClose = document.getElementById('ai-modal-close');
     
     // Stats elements
     const knowCount = document.getElementById('know-count');
@@ -30,9 +36,32 @@ document.addEventListener('DOMContentLoaded', () => {
     btnDontKnow.addEventListener('click', (e) => handleAnswer(0, e));
     btnUnsure.addEventListener('click', (e) => handleAnswer(1, e));
     btnKnow.addEventListener('click', (e) => handleAnswer(2, e));
+
     if (btnDemote) {
         btnDemote.addEventListener('click', (e) => handleDemote(e));
     }
+
+    if (btnAiDescription) {
+        btnAiDescription.addEventListener('click', (e) => handleAiDescription(e));
+    }
+
+    if (aiModalClose) {
+        aiModalClose.addEventListener('click', () => hideAiModal());
+    }
+
+    if (aiModal) {
+        aiModal.addEventListener('click', (e) => {
+            if (e.target === aiModal) {
+                hideAiModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            hideAiModal();
+        }
+    });
     
     // Functions
     async function init() {
@@ -119,6 +148,103 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error loading character details:', error);
         }
     }
+
+    function showAiModal(title, body) {
+        if (!aiModal || !aiModalTitle || !aiModalBody) return;
+        aiModalTitle.textContent = title;
+        aiModalBody.textContent = body;
+        aiModal.style.display = 'flex';
+    }
+
+    function hideAiModal() {
+        if (!aiModal) return;
+        aiModal.style.display = 'none';
+    }
+
+    async function handleAiDescription(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!currentCharacter) {
+            console.error('No current character for AI description');
+            return;
+        }
+
+        if (!btnAiDescription) return;
+
+        btnAiDescription.disabled = true;
+        showAiModal(`AI description: ${currentCharacter.hanzi}`, 'Loading...');
+
+        try {
+            const response = await fetch(`/api/character/${currentCharacter.id}/ai-description`);
+            const responseText = await response.text();
+
+            let data;
+            try {
+                data = responseText ? JSON.parse(responseText) : null;
+            } catch (jsonError) {
+                console.error('Error parsing AI description JSON response:', jsonError);
+                throw new Error('Failed to parse server response');
+            }
+
+            if (!response.ok || (data && data.error)) {
+                throw new Error((data && data.error) || 'Failed to load AI description');
+            }
+
+            const cachedSuffix = data && data.cached ? ' (cached)' : '';
+            showAiModal(`AI description: ${currentCharacter.hanzi}${cachedSuffix}`, (data && data.content) || '');
+        } catch (error) {
+            console.error('Error getting AI description:', error);
+            showAiModal(`AI description: ${currentCharacter.hanzi}`, 'Error loading AI description. Please try again.');
+        } finally {
+            btnAiDescription.disabled = false;
+        }
+    }
+
+    async function handleDemote(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!currentCharacter) {
+            console.error('No current character to demote');
+            return;
+        }
+
+        if (!btnDemote) return;
+
+        btnDemote.disabled = true;
+
+        try {
+            const response = await fetch('/api/character/demote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ character_id: currentCharacter.id })
+            });
+
+            const responseText = await response.text();
+            let data;
+            try {
+                data = responseText ? JSON.parse(responseText) : null;
+            } catch (jsonError) {
+                console.error('Error parsing demote JSON response:', jsonError);
+                throw new Error('Failed to parse server response');
+            }
+
+            if (!response.ok || (data && data.error)) {
+                throw new Error((data && data.error) || 'Failed to demote character');
+            }
+
+            flashcard.classList.remove('flipped');
+            await loadNextCharacter();
+        } catch (error) {
+            console.error('Error demoting character:', error);
+            alert('Error updating character frequency. Please try again.');
+        } finally {
+            btnDemote.disabled = false;
+        }
+    }
     
     async function handleAnswer(familiarity, event) {
         event.preventDefault(); // Prevent any default behavior
@@ -202,53 +328,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error submitting answer:', error);
             alert('Error submitting answer. Please try again.');
-        }
-    }
-
-    async function handleDemote(event) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (!currentCharacter) {
-            console.error('No current character to demote');
-            return;
-        }
-
-        if (btnDemote) {
-            btnDemote.disabled = true;
-        }
-
-        try {
-            const response = await fetch('/api/character/demote', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ character_id: currentCharacter.id })
-            });
-
-            const responseText = await response.text();
-            let data;
-            try {
-                data = responseText ? JSON.parse(responseText) : null;
-            } catch (jsonError) {
-                console.error('Error parsing demote JSON response:', jsonError);
-                throw new Error('Failed to parse server response');
-            }
-
-            if (!response.ok || (data && data.error)) {
-                throw new Error((data && data.error) || 'Failed to demote character');
-            }
-
-            flashcard.classList.remove('flipped');
-            await loadNextCharacter();
-        } catch (error) {
-            console.error('Error demoting character:', error);
-            alert('Error updating character frequency. Please try again.');
-        } finally {
-            if (btnDemote) {
-                btnDemote.disabled = false;
-            }
         }
     }
     

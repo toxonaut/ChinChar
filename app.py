@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify, make_response, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
-from models import db, Character, UserProgress, get_next_character, update_progress, User, UserCharacterTuning
+from models import db, Character, UserProgress, get_next_character, update_progress, User, CharacterAIDescription, UserCharacterTuning
 import random
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import json
@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import hashlib
 import string
 from authlib.integrations.flask_client import OAuth
+import requests
 
 # Load environment variables from .env file
 load_dotenv()
@@ -414,6 +415,95 @@ def get_character(character_id):
         app.logger.error(f"Error getting character: {e}")
         return jsonify({'error': 'An error occurred while retrieving the character'}), 500
 
+@app.route('/api/character/<int:character_id>/ai-description', methods=['GET'])
+@login_required
+def get_ai_description(character_id):
+    try:
+        character = Character.query.get(character_id)
+        if not character:
+            return jsonify({'error': 'Character not found'}), 404
+
+        existing = CharacterAIDescription.query.filter_by(character_id=character_id).first()
+        if existing:
+            return jsonify({'character_id': character_id, 'content': existing.content, 'cached': True})
+
+        api_key = os.environ.get('api_key') or os.environ.get('API_KEY')
+        if not api_key:
+            return jsonify({'error': 'Missing API key'}), 500
+
+        system_prompt = 'You come up with example words and sentences for a chinese dictionary app. Just show the answers for use in a dictionary app. no "of course" etc. Start the answers with a short description of the character, then examples.'
+        user_prompt = f'show the most common words using the character {character.hanzi} including example sentences'
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-4.1',
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_prompt}
+                ],
+                'temperature': 0.7,
+                'max_tokens': 800
+            },
+            timeout=30
+        )
+
+        if response.status_code != 200:
+            app.logger.error(f"OpenAI error {response.status_code}: {response.text}")
+            return jsonify({'error': 'AI request failed'}), 502
+
+        payload = response.json()
+        content = payload['choices'][0]['message']['content']
+
+        record = CharacterAIDescription(character_id=character_id, content=content, model='gpt-4.1')
+        db.session.add(record)
+        db.session.commit()
+
+        return jsonify({'character_id': character_id, 'content': content, 'cached': False})
+    except Exception as e:
+        app.logger.error(f"Error getting AI description: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'An error occurred while generating AI description'}), 500
+
+@app.route('/api/character/demote', methods=['POST'])
+@login_required
+def demote_character():
+    """Increase per-user rank penalty so the character is shown less often"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        character_id = data.get('character_id')
+        if not character_id:
+            return jsonify({'error': 'No character_id provided'}), 400
+
+        character = Character.query.get(character_id)
+        if not character:
+            return jsonify({'error': 'Character not found'}), 404
+
+        tuning = UserCharacterTuning.query.filter_by(
+            user_id=current_user.id,
+            character_id=character_id
+        ).first()
+
+        if not tuning:
+            tuning = UserCharacterTuning(user_id=current_user.id, character_id=character_id, rank_penalty=0)
+            db.session.add(tuning)
+
+        tuning.rank_penalty += 50
+        db.session.commit()
+
+        return jsonify({'success': True, 'rank_penalty': tuning.rank_penalty})
+    except Exception as e:
+        app.logger.error(f"Error demoting character: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'An error occurred while updating character tuning'}), 500
+
 @app.route('/api/progress', methods=['POST'])
 @login_required
 def update_user_progress():
@@ -463,41 +553,6 @@ def update_user_progress():
         print(f"Error in update_user_progress: {e}")
         traceback.print_exc()
         return jsonify({'error': 'An error occurred while updating progress'}), 500
-
-@app.route('/api/character/demote', methods=['POST'])
-@login_required
-def demote_character():
-    """Increase per-user rank penalty so the character is shown less often"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-
-        character_id = data.get('character_id')
-        if not character_id:
-            return jsonify({'error': 'No character_id provided'}), 400
-
-        character = Character.query.get(character_id)
-        if not character:
-            return jsonify({'error': 'Character not found'}), 404
-
-        tuning = UserCharacterTuning.query.filter_by(
-            user_id=current_user.id,
-            character_id=character_id
-        ).first()
-
-        if not tuning:
-            tuning = UserCharacterTuning(user_id=current_user.id, character_id=character_id, rank_penalty=0)
-            db.session.add(tuning)
-
-        tuning.rank_penalty += 50
-        db.session.commit()
-
-        return jsonify({'success': True, 'rank_penalty': tuning.rank_penalty})
-    except Exception as e:
-        app.logger.error(f"Error demoting character: {e}")
-        db.session.rollback()
-        return jsonify({'error': 'An error occurred while updating character tuning'}), 500
 
 @app.route('/api/bulk-import', methods=['POST'])
 @login_required

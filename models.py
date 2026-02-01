@@ -61,6 +61,18 @@ class UserCharacterTuning(db.Model):
     def __repr__(self):
         return f'<UserCharacterTuning user_id={self.user_id} character_id={self.character_id} rank_penalty={self.rank_penalty}>'
 
+class CharacterAIDescription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    character_id = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, unique=True)
+    content = db.Column(db.Text, nullable=False)
+    model = db.Column(db.String(50), nullable=False, default='gpt-4.1')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    character = db.relationship('Character', backref=db.backref('ai_description', uselist=False))
+
+    def __repr__(self):
+        return f'<CharacterAIDescription character_id={self.character_id} model={self.model}>'
+
 def get_rank_penalties(user_id):
     records = UserCharacterTuning.query.filter_by(user_id=user_id).all()
     return {r.character_id: r.rank_penalty for r in records}

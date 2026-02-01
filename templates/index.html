@@ -72,6 +72,7 @@
                 <button class="btn btn-yellow" id="btn-unsure" data-url="/unsure">Unsure</button>
                 <button class="btn btn-green" id="btn-know" data-url="/known">Know</button>
                 <button class="btn btn-gray" id="btn-demote" type="button">Show less often</button>
+                <button class="btn btn-blue" id="btn-ai-description" type="button">AI description</button>
             </div>
         </main>
 
@@ -82,6 +83,16 @@
                 <a href="/api/export-known" class="footer-link">Export Known Only</a>
             </div>
         </footer>
+    </div>
+
+    <div class="modal-overlay" id="ai-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="ai-modal-title">AI description</div>
+                <button class="modal-close" id="ai-modal-close" type="button">&times;</button>
+            </div>
+            <pre class="modal-body" id="ai-modal-body"></pre>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
