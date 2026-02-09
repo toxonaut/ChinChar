@@ -635,13 +635,17 @@ def export_character_progress():
     try:
         # Get all characters that have been reviewed
         progress = UserProgress.query.filter_by(user_id=current_user.id).all()
+
+        tuning_records = UserCharacterTuning.query.filter_by(user_id=current_user.id).all()
+        tuning_by_character_id = {t.character_id: t.rank_penalty for t in tuning_records}
         
         # Create a dictionary to store character progress
         progress_data = {
             "know": [],
             "unsure": [],
             "dont_know": [],
-            "detailed": {}  # New section for detailed progress info
+            "detailed": {},  # New section for detailed progress info
+            "tuning": {}
         }
         
         for p in progress:
@@ -662,7 +666,15 @@ def export_character_progress():
                     "know_count": p.know_count,
                     "unsure_count": p.unsure_count,
                     "dont_know_count": p.dont_know_count,
-                    "last_reviewed": p.last_reviewed.isoformat()
+                    "last_reviewed": p.last_reviewed.isoformat(),
+                    "rank_penalty": tuning_by_character_id.get(character.id, 0)
+                }
+
+        for t in tuning_records:
+            character = Character.query.get(t.character_id)
+            if character:
+                progress_data["tuning"][character.hanzi] = {
+                    "rank_penalty": t.rank_penalty
                 }
         
         # Convert to JSON
@@ -747,6 +759,33 @@ def import_character_progress():
             
             # Get user_id from current_user
             user_id = current_user.id
+
+            def apply_tuning_if_present():
+                tuning_data = progress_data.get("tuning")
+                if not tuning_data or not isinstance(tuning_data, dict):
+                    return
+
+                for hanzi, tuning in tuning_data.items():
+                    character = Character.query.filter_by(hanzi=hanzi).first()
+                    if not character:
+                        continue
+
+                    if isinstance(tuning, dict):
+                        rank_penalty = tuning.get("rank_penalty", 0)
+                    else:
+                        rank_penalty = tuning
+
+                    try:
+                        rank_penalty = int(rank_penalty)
+                    except (TypeError, ValueError):
+                        rank_penalty = 0
+
+                    record = UserCharacterTuning.query.filter_by(user_id=user_id, character_id=character.id).first()
+                    if not record:
+                        record = UserCharacterTuning(user_id=user_id, character_id=character.id, rank_penalty=0)
+                        db.session.add(record)
+
+                    record.rank_penalty = rank_penalty
             
             # Process results
             results = {
@@ -820,7 +859,8 @@ def import_character_progress():
                             'character': hanzi,
                             'status': 'failed'
                         })
-                
+
+                apply_tuning_if_present()
                 db.session.commit()
                 
                 # If detailed progress was processed, return early
@@ -914,6 +954,9 @@ def import_character_progress():
                             'character': char,
                             'status': 'failed'
                         })
+
+            apply_tuning_if_present()
+            db.session.commit()
             
             return jsonify({
                 'success': True,
