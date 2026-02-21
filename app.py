@@ -439,7 +439,10 @@ def get_ai_description(character_id):
 
         api_key = os.environ.get('api_key') or os.environ.get('API_KEY')
         if not api_key:
-            return jsonify({'error': 'Missing API key'}), 500
+            app.logger.error("AI description: No api_key or API_KEY env var found")
+            return jsonify({'error': 'Missing API key. Set api_key or API_KEY in environment variables.'}), 500
+
+        app.logger.info(f"AI description: Using API key starting with {api_key[:8]}...")
 
         system_prompt = 'You come up with example words and sentences for a chinese dictionary app. Just show the answers for use in a dictionary app. no "of course" etc. Start the answers with a short description of the character, then examples.'
         user_prompt = f'show the most common words using the character {character.hanzi} including example sentences'
@@ -463,8 +466,12 @@ def get_ai_description(character_id):
         )
 
         if response.status_code != 200:
-            app.logger.error(f"OpenAI error {response.status_code}: {response.text}")
-            return jsonify({'error': 'AI request failed'}), 502
+            try:
+                error_detail = response.json().get('error', {}).get('message', response.text[:200])
+            except Exception:
+                error_detail = response.text[:200]
+            app.logger.error(f"OpenAI error {response.status_code}: {error_detail}")
+            return jsonify({'error': f'OpenAI API error ({response.status_code}): {error_detail}'}), 502
 
         payload = response.json()
         content = payload['choices'][0]['message']['content']
