@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showAiModal(`AI description: ${currentCharacter.hanzi}${cachedSuffix}`, (data && data.content) || '');
         } catch (error) {
             console.error('Error getting AI description:', error);
-            showAiModal(`AI description: ${currentCharacter.hanzi}`, 'Error loading AI description. Please try again.');
+            showAiModal(`AI description: ${currentCharacter.hanzi}`, error.message || 'Error loading AI description. Please try again.');
         } finally {
             btnAiDescription.disabled = false;
         }
