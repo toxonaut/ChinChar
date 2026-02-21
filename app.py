@@ -44,13 +44,23 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Set a secret key for session management
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+# IMPORTANT: SECRET_KEY must be stable across restarts, otherwise all sessions are invalidated.
+# If SECRET_KEY env var is not set, derive a deterministic fallback from DATABASE_URL.
+_secret = os.environ.get('SECRET_KEY')
+if not _secret:
+    _db_url = os.environ.get('DATABASE_URL', 'fallback-chinchar-secret')
+    _secret = hashlib.sha256(_db_url.encode()).hexdigest()
+    print('WARNING: SECRET_KEY not set, using deterministic fallback. Set SECRET_KEY in Railway env vars for best security.')
+app.secret_key = _secret
 
 # Configure session to be more robust
 app.config['SESSION_COOKIE_SECURE'] = is_production  # Set to True in production with HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
+app.config['REMEMBER_COOKIE_SECURE'] = is_production
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 
 # Force HTTPS for external URLs when running on Railway
 if is_production:
@@ -131,8 +141,8 @@ def login():
             user.last_login = datetime.utcnow()
             db.session.commit()
         
-        # Log in the user
-        login_user(user)
+        # Log in the user (remember=True keeps session for 30 days)
+        login_user(user, remember=True)
         print(f"User logged in successfully: {user.email}")
         
         # Redirect to home page
@@ -248,8 +258,8 @@ def google_auth():
             user.last_login = datetime.utcnow()
             db.session.commit()
             
-            # Log in the user
-            login_user(user)
+            # Log in the user (remember=True keeps session for 30 days)
+            login_user(user, remember=True)
             print(f"User logged in via Google: {user.email}")
             
             # Redirect to home page
