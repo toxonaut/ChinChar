@@ -1129,8 +1129,16 @@ def debug_db_status():
 @app.route('/debug/load-characters')
 def debug_load_characters():
     """Manually trigger character loading from characters.txt into the database."""
+    from sqlalchemy import text
     try:
         db.create_all()
+        # Widen columns if they are still VARCHAR(100)/VARCHAR(50) from old schema
+        try:
+            db.session.execute(text('ALTER TABLE character ALTER COLUMN meaning TYPE TEXT'))
+            db.session.execute(text('ALTER TABLE character ALTER COLUMN pinyin TYPE VARCHAR(200)'))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()  # already the right type, ignore
         char_count = Character.query.count()
         if char_count > 0:
             return jsonify({'message': f'Database already has {char_count} characters, no action needed.'})
@@ -1204,6 +1212,7 @@ def ensure_db_initialized():
     _db_initialized = True
 
     print("=== DB initialization (first request) ===")
+    from sqlalchemy import text
 
     # Check if we're in development or production
     is_dev_mode = not is_production and os.environ.get('FLASK_ENV') != 'production'
@@ -1215,6 +1224,15 @@ def ensure_db_initialized():
     else:
         print("Creating tables if they don't exist...")
         db.create_all()
+
+    # Widen columns if they are still VARCHAR(100)/VARCHAR(50) from old schema
+    try:
+        db.session.execute(text('ALTER TABLE character ALTER COLUMN meaning TYPE TEXT'))
+        db.session.execute(text('ALTER TABLE character ALTER COLUMN pinyin TYPE VARCHAR(200)'))
+        db.session.commit()
+        print("Widened meaning/pinyin columns")
+    except Exception:
+        db.session.rollback()
 
     # Initialize the database with characters from characters.txt
     try:
