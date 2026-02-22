@@ -10,9 +10,10 @@
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #161b22;
+            border-radius: 12px;
+            border: 1px solid #21262d;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
         
         .import-form {
@@ -20,21 +21,33 @@
             flex-direction: column;
             gap: 15px;
         }
+
+        .import-form label {
+            color: #8b949e;
+        }
         
         .import-textarea {
             min-height: 150px;
             padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
             font-size: 1.2rem;
+            background-color: #0d1117;
+            color: #e1e4e8;
+        }
+
+        .import-textarea:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.3);
         }
         
         .import-button {
             padding: 12px 20px;
-            background-color: #2ecc71;
+            background-color: #238636;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
@@ -42,26 +55,26 @@
         }
         
         .import-button:hover {
-            background-color: #27ae60;
+            background-color: #2ea043;
         }
         
         .result-container {
             margin-top: 20px;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 6px;
             display: none;
         }
         
         .result-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background-color: rgba(35, 134, 54, 0.15);
+            color: #3fb950;
+            border: 1px solid rgba(63, 185, 80, 0.4);
         }
         
         .result-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background-color: rgba(248, 81, 73, 0.1);
+            color: #f85149;
+            border: 1px solid rgba(248, 81, 73, 0.4);
         }
         
         .character-preview {
@@ -78,26 +91,29 @@
             line-height: 40px;
             text-align: center;
             font-size: 1.5rem;
-            background-color: #f8f9fa;
-            border-radius: 5px;
+            background-color: #1c2128;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e1e4e8;
         }
         
         .back-link {
             display: inline-block;
             margin-top: 20px;
-            color: #3498db;
+            color: #58a6ff;
             text-decoration: none;
             font-weight: bold;
         }
         
         .back-link:hover {
+            color: #79c0ff;
             text-decoration: underline;
         }
         
         .tabs {
             display: flex;
             margin-bottom: 20px;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #21262d;
         }
         
         .tab {
@@ -105,16 +121,23 @@
             cursor: pointer;
             border: 1px solid transparent;
             border-bottom: none;
-            border-radius: 5px 5px 0 0;
+            border-radius: 6px 6px 0 0;
             margin-right: 5px;
+            color: #8b949e;
+            transition: color 0.2s;
+        }
+
+        .tab:hover {
+            color: #e1e4e8;
         }
         
         .tab.active {
-            background-color: white;
-            border-color: #ddd;
-            border-bottom-color: white;
+            background-color: #161b22;
+            border-color: #21262d;
+            border-bottom-color: #161b22;
             margin-bottom: -1px;
             font-weight: bold;
+            color: #e1e4e8;
         }
         
         .tab-content {
@@ -129,25 +152,31 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+            color: #8b949e;
         }
         
         .file-input-container {
             display: flex;
             gap: 10px;
         }
+
+        input[type="file"] {
+            color: #8b949e;
+        }
         
         .export-container {
             display: flex;
             flex-direction: column;
             gap: 15px;
+            color: #8b949e;
         }
         
         .export-button {
             padding: 12px 20px;
-            background-color: #3498db;
+            background-color: #1f6feb;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
@@ -159,7 +188,7 @@
         }
         
         .export-button:hover {
-            background-color: #2980b9;
+            background-color: #388bfd;
         }
         
         .action-buttons {

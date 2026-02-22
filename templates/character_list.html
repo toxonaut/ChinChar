@@ -14,9 +14,10 @@
         }
         
         .character-card {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #161b22;
+            border-radius: 12px;
+            border: 1px solid #21262d;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             padding: 15px;
             text-align: center;
             transition: transform 0.3s ease;
@@ -24,24 +25,26 @@
         
         .character-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            border-color: #30363d;
         }
         
         .character-hanzi {
             font-size: 3rem;
             font-weight: bold;
             margin-bottom: 10px;
+            color: #e1e4e8;
         }
         
         .character-pinyin {
-            color: #e74c3c;
+            color: #ff6b6b;
             font-size: 1rem;
             margin-bottom: 5px;
         }
         
         .character-meaning {
             font-size: 0.9rem;
-            color: #555;
+            color: #8b949e;
             margin-bottom: 10px;
             height: 40px;
             overflow: hidden;
@@ -54,31 +57,37 @@
         
         .character-meta {
             font-size: 0.8rem;
-            color: #777;
+            color: #484f58;
         }
         
         .back-button {
             display: inline-block;
             margin-bottom: 20px;
             padding: 10px 20px;
-            background-color: #3498db;
+            background-color: #1f6feb;
             color: white;
             text-decoration: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-weight: bold;
             transition: background-color 0.3s ease;
         }
         
         .back-button:hover {
-            background-color: #2980b9;
+            background-color: #388bfd;
         }
         
         .empty-message {
             text-align: center;
             padding: 50px;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #161b22;
+            border-radius: 12px;
+            border: 1px solid #21262d;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            color: #8b949e;
+        }
+
+        .empty-message h2 {
+            color: #e1e4e8;
         }
         
         .logo-container {
@@ -102,15 +111,15 @@
         }
         
         .know-count {
-            color: #2ecc71;
+            color: #3fb950;
         }
         
         .unsure-count {
-            color: #f1c40f;
+            color: #d29922;
         }
         
         .dont-know-count {
-            color: #e74c3c;
+            color: #f85149;
         }
     </style>
 </head>
