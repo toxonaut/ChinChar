@@ -37,10 +37,19 @@ print(f"Running in production mode: {is_production}")
 app = Flask(__name__)
 
 # Configure database
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///chinchar.db')
+_raw_db_url = os.environ.get('DATABASE_URL', '')
+if _raw_db_url:
+    print(f"DATABASE_URL is set (starts with: {_raw_db_url[:30]}...)")
+else:
+    print("WARNING: DATABASE_URL is NOT set, falling back to SQLite (data will be lost on redeploy!)")
+    _raw_db_url = 'sqlite:///chinchar.db'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = _raw_db_url
 # Replace postgres:// with postgresql:// in the DATABASE_URL (Railway specific)
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
+    print("Replaced postgres:// with postgresql:// in DATABASE_URL")
+print(f"Final DB URI scheme: {app.config['SQLALCHEMY_DATABASE_URI'].split('://')[0]}://")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Set a secret key for session management
@@ -1082,6 +1091,41 @@ def get_stats():
 def import_export_page():
     """Render the import/export page"""
     return render_template('import_export.html')
+
+@app.route('/debug/db-status')
+@login_required
+def debug_db_status():
+    """Debug route to check database connection and table status"""
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+        db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+        # Mask credentials
+        if '@' in db_uri:
+            scheme_and_creds, rest = db_uri.split('@', 1)
+            scheme = scheme_and_creds.split('://')[0]
+            masked_uri = f"{scheme}://***@{rest}"
+        else:
+            masked_uri = db_uri
+
+        table_counts = {}
+        for table in tables:
+            try:
+                result = db.session.execute(text(f'SELECT COUNT(*) FROM "{table}"'))
+                table_counts[table] = result.scalar()
+            except Exception as e:
+                table_counts[table] = f"error: {e}"
+
+        return jsonify({
+            'db_uri_masked': masked_uri,
+            'is_sqlite': 'sqlite' in db_uri,
+            'is_postgres': 'postgresql' in db_uri or 'postgres' in db_uri,
+            'tables_found': tables,
+            'table_row_counts': table_counts
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/debug/oauth-uri')
 def debug_oauth_uri():
