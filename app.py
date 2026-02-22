@@ -1168,15 +1168,12 @@ with app.app_context():
     # Initialize the database with characters from characters.txt
     try:
         # Check if there are any characters in the database
-        if Character.query.count() == 0:
+        char_count = Character.query.count()
+        print(f"Characters currently in database: {char_count}")
+        if char_count == 0:
             print("Initializing database with characters from characters.txt...")
             characters_file = os.path.join(os.path.dirname(__file__), 'characters.txt')
             print(f"Looking for characters file at: {characters_file}")
-            
-            # List files in the current directory for debugging
-            print(f"Files in {os.path.dirname(__file__)}:")
-            for file in os.listdir(os.path.dirname(__file__)):
-                print(f"  - {file}")
             
             if os.path.exists(characters_file):
                 print(f"Characters file found, loading data...")
@@ -1219,11 +1216,16 @@ with app.app_context():
                                 print(f"Error parsing line: {line.strip()}, Error: {e}")
                 
                 db.session.commit()
-                print(f"Initialized database with {count} characters")
+                final_count = Character.query.count()
+                print(f"Committed {count} characters. Verified count in DB: {final_count}")
             else:
-                print(f"Warning: characters.txt file not found at {characters_file}")
+                print(f"WARNING: characters.txt file not found at {characters_file}")
+        else:
+            print(f"Database already has {char_count} characters, skipping import.")
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"ERROR initializing database with characters: {e}")
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
 
 if __name__ == '__main__':
