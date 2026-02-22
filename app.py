@@ -1150,59 +1150,61 @@ def debug_oauth_uri():
     
     return jsonify(debug_info)
 
-# Create tables within application context
-with app.app_context():
+_db_initialized = False
+
+@app.before_request
+def ensure_db_initialized():
+    """Create tables and load characters on the very first request (works reliably under gunicorn)."""
+    global _db_initialized
+    if _db_initialized:
+        return
+    _db_initialized = True
+
+    print("=== DB initialization (first request) ===")
+
     # Check if we're in development or production
     is_dev_mode = not is_production and os.environ.get('FLASK_ENV') != 'production'
-    
+
     if is_dev_mode and os.environ.get('RESET_DB') == 'true':
-        # Only drop tables in development mode and when explicitly requested
         print("Development mode with RESET_DB=true: Dropping all tables to update schema...")
         db.drop_all()
         db.create_all()
     else:
-        # In production or normal development, just create tables if they don't exist
         print("Creating tables if they don't exist...")
         db.create_all()
-    
+
     # Initialize the database with characters from characters.txt
     try:
-        # Check if there are any characters in the database
         char_count = Character.query.count()
         print(f"Characters currently in database: {char_count}")
         if char_count == 0:
             print("Initializing database with characters from characters.txt...")
             characters_file = os.path.join(os.path.dirname(__file__), 'characters.txt')
             print(f"Looking for characters file at: {characters_file}")
-            
+
             if os.path.exists(characters_file):
-                print(f"Characters file found, loading data...")
+                print("Characters file found, loading data...")
                 with open(characters_file, 'r', encoding='utf-8') as f:
                     count = 0
                     for line in f:
                         parts = line.strip().split('\t')
-                        if len(parts) >= 5:  # We need at least rank, hanzi, frequency, cumulative, pinyin
+                        if len(parts) >= 5:
                             try:
                                 rank = int(parts[0])
                                 hanzi = parts[1]
                                 frequency = int(float(parts[2]))
-                                
-                                # Extract pinyin and meaning
+
                                 pinyin_with_meaning = parts[4:]
-                                pinyin = pinyin_with_meaning[0].split()[0]  # Get the first word of pinyin
-                                
-                                # Join the rest as meaning
+                                pinyin = pinyin_with_meaning[0].split()[0]
+
                                 meaning = ' '.join(pinyin_with_meaning[0].split()[1:])
                                 if len(pinyin_with_meaning) > 1:
                                     meaning += ' ' + ' '.join(pinyin_with_meaning[1:])
-                                
-                                # Clean up meaning
                                 meaning = meaning.strip()
-                                
-                                # Print debug info for the first few characters
+
                                 if count < 5:
                                     print(f"Parsed: Rank={rank}, Hanzi='{hanzi}', Pinyin='{pinyin}', Meaning='{meaning}'")
-                                
+
                                 character = Character(
                                     hanzi=hanzi,
                                     pinyin=pinyin,
@@ -1214,7 +1216,7 @@ with app.app_context():
                                 count += 1
                             except Exception as e:
                                 print(f"Error parsing line: {line.strip()}, Error: {e}")
-                
+
                 db.session.commit()
                 final_count = Character.query.count()
                 print(f"Committed {count} characters. Verified count in DB: {final_count}")
