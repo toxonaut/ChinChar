@@ -1093,7 +1093,6 @@ def import_export_page():
     return render_template('import_export.html')
 
 @app.route('/debug/db-status')
-@login_required
 def debug_db_status():
     """Debug route to check database connection and table status"""
     from sqlalchemy import inspect, text
@@ -1125,6 +1124,50 @@ def debug_db_status():
             'table_row_counts': table_counts
         })
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/debug/load-characters')
+def debug_load_characters():
+    """Manually trigger character loading from characters.txt into the database."""
+    try:
+        db.create_all()
+        char_count = Character.query.count()
+        if char_count > 0:
+            return jsonify({'message': f'Database already has {char_count} characters, no action needed.'})
+
+        characters_file = os.path.join(os.path.dirname(__file__), 'characters.txt')
+        if not os.path.exists(characters_file):
+            return jsonify({'error': f'characters.txt not found at {characters_file}'}), 404
+
+        with open(characters_file, 'r', encoding='utf-8') as f:
+            count = 0
+            for line in f:
+                parts = line.strip().split('\t')
+                if len(parts) >= 5:
+                    try:
+                        rank = int(parts[0])
+                        hanzi = parts[1]
+                        frequency = int(float(parts[2]))
+                        pinyin_with_meaning = parts[4:]
+                        pinyin = pinyin_with_meaning[0].split()[0]
+                        meaning = ' '.join(pinyin_with_meaning[0].split()[1:])
+                        if len(pinyin_with_meaning) > 1:
+                            meaning += ' ' + ' '.join(pinyin_with_meaning[1:])
+                        meaning = meaning.strip()
+                        character = Character(
+                            hanzi=hanzi, pinyin=pinyin, meaning=meaning,
+                            frequency=frequency, rank=rank
+                        )
+                        db.session.add(character)
+                        count += 1
+                    except Exception as e:
+                        pass  # skip bad lines
+
+        db.session.commit()
+        final_count = Character.query.count()
+        return jsonify({'loaded': count, 'verified_in_db': final_count})
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/debug/oauth-uri')
