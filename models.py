@@ -77,6 +77,19 @@ def get_rank_penalties(user_id):
     records = UserCharacterTuning.query.filter_by(user_id=user_id).all()
     return {r.character_id: r.rank_penalty for r in records}
 
+def _weighted_pick(characters, rank_penalties):
+    """Pick a character using weighted random selection.
+    Characters with lower effective rank (= more common, less demoted) are
+    much more likely to be chosen.  Weight = 1 / (effective_rank) so a
+    demoted character genuinely appears less often.
+    """
+    weights = []
+    for c in characters:
+        effective_rank = c.rank + rank_penalties.get(c.id, 0)
+        # Ensure effective_rank is at least 1 to avoid division by zero
+        weights.append(1.0 / max(effective_rank, 1))
+    return random.choices(characters, weights=weights, k=1)[0]
+
 def get_next_character(user_id):
     """
     Get the next character to review based on frequency and familiarity.
@@ -121,22 +134,18 @@ def get_next_character(user_id):
             top_ids = [char.id for char in top_characters]
             
             # First priority: Show unreviewed characters from the top 20
-            unreviewed_top = [char_id for char_id in top_ids if char_id not in familiarity_dict and char_id != last_shown_id]
+            unreviewed_top = [char for char in top_characters if char.id not in familiarity_dict and char.id != last_shown_id]
             if unreviewed_top:
-                characters = Character.query.filter(Character.id.in_(unreviewed_top)).all()
-                if characters:
-                    return random.choice(characters)
+                return _weighted_pick(unreviewed_top, rank_penalties)
             
             # Second priority: Show characters from top 20 that aren't well known
-            not_well_known = [char_id for char_id in top_ids if char_id in familiarity_dict and familiarity_dict[char_id] < 2 and char_id != last_shown_id]
+            not_well_known = [char for char in top_characters if char.id in familiarity_dict and familiarity_dict[char.id] < 2 and char.id != last_shown_id]
             if not_well_known:
-                characters = Character.query.filter(Character.id.in_(not_well_known)).all()
-                if characters:
-                    return random.choice(characters)
+                return _weighted_pick(not_well_known, rank_penalties)
             
             # If all top 20 are known, fall through to the main algorithm
         
-        # Decide whether to show a known character (1 in 10chance, or about 10%)
+        # Decide whether to show a known character (1 in 10 chance, or about 10%)
         show_known = random.random() < 0.1
         
         if show_known and known_ids:
@@ -148,7 +157,7 @@ def get_next_character(user_id):
             if available_known:
                 characters = Character.query.filter(Character.id.in_(available_known)).all()
                 if characters:
-                    return random.choice(characters)
+                    return _weighted_pick(characters, rank_penalties)
         
         # Main algorithm: Get the 100 most common characters that aren't yet known
         
@@ -172,7 +181,7 @@ def get_next_character(user_id):
                 available_next = next_characters
                 
             if available_next:
-                return random.choice(available_next)
+                return _weighted_pick(available_next, rank_penalties)
         
         # If somehow all characters are known (extremely rare), show a random one from the top 100
         return Character.query.order_by(Character.rank.asc()).limit(100).first()
