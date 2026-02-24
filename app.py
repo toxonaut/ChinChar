@@ -1161,12 +1161,36 @@ def annotate_text():
                     'definitions': defs
                 })
             else:
-                result.append({
-                    'token': tok,
-                    'type': 'chinese',
-                    'pinyin': '',
-                    'definitions': []
-                })
+                # No entry for the whole token — split into individual characters
+                if len(tok) > 1:
+                    for ch in tok:
+                        if not _is_chinese_token(ch):
+                            result.append({'token': ch, 'type': 'punctuation'})
+                            continue
+                        ch_entry = _cccedict.get_entry(ch)
+                        if ch_entry:
+                            ch_pinyin_raw = ch_entry.get('pinyin', '')
+                            ch_pinyin = _numbered_to_tonemarks(ch_pinyin_raw) if ch_pinyin_raw else ''
+                            result.append({
+                                'token': ch,
+                                'type': 'chinese',
+                                'pinyin': ch_pinyin,
+                                'definitions': ch_entry.get('definitions', [])
+                            })
+                        else:
+                            result.append({
+                                'token': ch,
+                                'type': 'chinese',
+                                'pinyin': '',
+                                'definitions': []
+                            })
+                else:
+                    result.append({
+                        'token': tok,
+                        'type': 'chinese',
+                        'pinyin': '',
+                        'definitions': []
+                    })
 
         return jsonify({'tokens': result})
     except Exception as e:
