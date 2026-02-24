@@ -1131,6 +1131,98 @@ def text_learner_page():
     """Render the text learner page"""
     return render_template('text_learner.html')
 
+@app.route('/api/grammar-analysis', methods=['POST'])
+@login_required
+def grammar_analysis():
+    """Send Chinese text to GPT-4.1 for sentence-by-sentence grammar analysis."""
+    try:
+        data = request.get_json()
+        if not data or not data.get('text', '').strip():
+            return jsonify({'error': 'Please enter some Chinese text'}), 400
+
+        text = data['text'].strip()
+
+        api_key = os.environ.get('api_key') or os.environ.get('API_KEY')
+        if not api_key:
+            return jsonify({'error': 'Missing API key. Set api_key or API_KEY in environment variables.'}), 500
+
+        system_prompt = (
+            'You are a Chinese language teacher. You break down Chinese text for learners. '
+            'For the given text, split it into natural sentence chunks (a sentence or meaningful sentence fragment per chunk). '
+            'For each chunk output EXACTLY this format:\n'
+            'CHUNK: [the Chinese sentence/fragment exactly as given]\n'
+            'EXPLANATION: [grammar explanation of that chunk]\n\n'
+            'Rules:\n'
+            '- Every word/phrase in the chunk must be explained with pinyin (using tone marks like ā á ǎ à, NOT numbers) and English meaning.\n'
+            '- Explain grammar patterns used (e.g. 得-complement, 把-construction, 了 aspect marker, etc.).\n'
+            '- Keep the original text exactly, do not modify or skip any part.\n'
+            '- Each CHUNK/EXPLANATION pair must be separated by a blank line.\n'
+            '- Do not add any other text, headers, or numbering outside of this format.'
+        )
+
+        user_prompt = f'Analyze this Chinese text:\n\n{text}'
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-4.1',
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_prompt}
+                ],
+                'temperature': 0.4,
+                'max_tokens': 3000
+            },
+            timeout=60
+        )
+
+        if response.status_code != 200:
+            try:
+                error_detail = response.json().get('error', {}).get('message', response.text[:200])
+            except Exception:
+                error_detail = response.text[:200]
+            app.logger.error(f"OpenAI grammar error {response.status_code}: {error_detail}")
+            return jsonify({'error': f'OpenAI API error ({response.status_code}): {error_detail}'}), 502
+
+        payload = response.json()
+        content = payload['choices'][0]['message']['content']
+
+        # Parse the CHUNK: / EXPLANATION: pairs
+        chunks = []
+        current_chunk = None
+        current_explanation = None
+        collecting = None
+
+        for line in content.split('\n'):
+            stripped = line.strip()
+            if stripped.startswith('CHUNK:'):
+                # Save previous pair if exists
+                if current_chunk is not None:
+                    chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+                current_chunk = stripped[len('CHUNK:'):].strip()
+                current_explanation = None
+                collecting = 'chunk'
+            elif stripped.startswith('EXPLANATION:'):
+                current_explanation = stripped[len('EXPLANATION:'):].strip()
+                collecting = 'explanation'
+            elif collecting == 'explanation' and stripped:
+                current_explanation = (current_explanation or '') + '\n' + stripped
+            elif collecting == 'chunk' and stripped:
+                current_chunk = (current_chunk or '') + stripped
+
+        # Don't forget the last pair
+        if current_chunk is not None:
+            chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+
+        return jsonify({'chunks': chunks})
+    except Exception as e:
+        app.logger.error(f"Error in grammar analysis: {e}")
+        return jsonify({'error': 'An error occurred during grammar analysis'}), 500
+
 @app.route('/api/annotate-text', methods=['POST'])
 @login_required
 def annotate_text():

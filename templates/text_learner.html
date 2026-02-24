@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         .text-learner-container {
-            max-width: 800px;
+            max-width: 1100px;
             margin: 0 auto;
         }
 
@@ -195,6 +195,89 @@
             gap: 16px;
             margin-bottom: 20px;
         }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .grammar-btn {
+            display: inline-block;
+            padding: 12px 28px;
+            background-color: #8957e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .grammar-btn:hover {
+            background-color: #a371f7;
+        }
+
+        .grammar-btn:disabled {
+            background-color: #30363d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+
+        .grammar-output {
+            display: none;
+            margin-top: 0;
+        }
+
+        .grammar-output.visible {
+            display: block;
+        }
+
+        .grammar-chunk {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            border: 1px solid #21262d;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            background-color: #161b22;
+        }
+
+        .grammar-sentence {
+            padding: 18px 22px;
+            font-size: 1.35rem;
+            line-height: 1.9;
+            color: #e1e4e8;
+            border-right: 1px solid #21262d;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            display: flex;
+            align-items: center;
+        }
+
+        .grammar-explanation {
+            padding: 18px 22px;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            color: #8b949e;
+            white-space: pre-wrap;
+        }
+
+        .grammar-explanation strong, .grammar-explanation b {
+            color: #e1e4e8;
+        }
+
+        @media (max-width: 700px) {
+            .grammar-chunk {
+                grid-template-columns: 1fr;
+            }
+            .grammar-sentence {
+                border-right: none;
+                border-bottom: 1px solid #21262d;
+            }
+        }
     </style>
 </head>
 <body>
@@ -216,11 +299,15 @@
                 <div class="input-section">
                     <label for="chinese-text">Paste Chinese text below:</label>
                     <textarea id="chinese-text" class="chinese-input" placeholder="在这里粘贴中文文本..."></textarea>
-                    <button id="annotate-btn" class="annotate-btn">Annotate</button>
+                    <div class="btn-row">
+                        <button id="annotate-btn" class="annotate-btn">Annotate</button>
+                        <button id="grammar-btn" class="grammar-btn">Grammar Analysis</button>
+                    </div>
                     <div id="warning-msg" class="warning-message">Please enter some Chinese text.</div>
                 </div>
 
                 <div id="annotation-output" class="annotation-output"></div>
+                <div id="grammar-output" class="grammar-output"></div>
             </div>
         </main>
 
@@ -232,13 +319,16 @@
     <script>
         const textInput = document.getElementById('chinese-text');
         const annotateBtn = document.getElementById('annotate-btn');
+        const grammarBtn = document.getElementById('grammar-btn');
         const warningMsg = document.getElementById('warning-msg');
         const output = document.getElementById('annotation-output');
+        const grammarOutput = document.getElementById('grammar-output');
 
         annotateBtn.addEventListener('click', async () => {
             const text = textInput.value.trim();
             warningMsg.classList.remove('visible');
             output.classList.remove('visible');
+            grammarOutput.classList.remove('visible');
             output.innerHTML = '';
 
             if (!text) {
@@ -299,6 +389,62 @@
             } finally {
                 annotateBtn.disabled = false;
                 annotateBtn.textContent = 'Annotate';
+            }
+        });
+
+        grammarBtn.addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            warningMsg.classList.remove('visible');
+            output.classList.remove('visible');
+            grammarOutput.classList.remove('visible');
+            grammarOutput.innerHTML = '';
+
+            if (!text) {
+                warningMsg.textContent = 'Please enter some Chinese text.';
+                warningMsg.classList.add('visible');
+                return;
+            }
+
+            grammarBtn.disabled = true;
+            grammarBtn.textContent = 'Analyzing...';
+
+            try {
+                const response = await fetch('/api/grammar-analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    warningMsg.textContent = data.error || 'An error occurred.';
+                    warningMsg.classList.add('visible');
+                    return;
+                }
+
+                let html = '';
+                for (const chunk of data.chunks) {
+                    const escapedSentence = chunk.sentence;
+                    const escapedExplanation = chunk.explanation
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    html += `<div class="grammar-chunk">`;
+                    html += `<div class="grammar-sentence">${escapedSentence}</div>`;
+                    html += `<div class="grammar-explanation">${escapedExplanation}</div>`;
+                    html += `</div>`;
+                }
+
+                grammarOutput.innerHTML = html;
+                grammarOutput.classList.add('visible');
+            } catch (err) {
+                console.error('Grammar analysis error:', err);
+                warningMsg.textContent = 'An error occurred during grammar analysis.';
+                warningMsg.classList.add('visible');
+            } finally {
+                grammarBtn.disabled = false;
+                grammarBtn.textContent = 'Grammar Analysis';
             }
         });
     </script>
