@@ -8,3 +8,5 @@ Flask-Login==0.6.2
 authlib==1.2.1
 requests==2.31.0
 psycopg2-binary==2.9.9
+jieba==0.42.1
+pycccedict==1.2.0

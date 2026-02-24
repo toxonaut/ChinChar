@@ -11,6 +11,39 @@ import hashlib
 import string
 from authlib.integrations.flask_client import OAuth
 import requests
+import re as re_module
+import jieba
+from pycccedict.cccedict import CcCedict
+
+# Initialize CC-CEDICT dictionary once at module level
+_cccedict = CcCedict()
+
+def _numbered_to_tonemarks(s: str) -> str:
+    """Convert numbered pinyin like 'bei3 jing1' to tone marks like 'běi jīng'."""
+    _tone_marks = {
+        'a': 'āáǎà', 'e': 'ēéěè', 'i': 'īíǐì',
+        'o': 'ōóǒò', 'u': 'ūúǔù', 'ü': 'ǖǘǚǜ',
+    }
+    def _convert_syllable(m):
+        syllable = m.group(1).lower()
+        tone = int(m.group(2))
+        if tone == 5 or tone == 0:
+            return syllable
+        for v in ('a', 'e'):
+            if v in syllable:
+                return syllable.replace(v, _tone_marks[v][tone - 1])
+        if 'ou' in syllable:
+            return syllable.replace('o', _tone_marks['o'][tone - 1])
+        for idx in range(len(syllable) - 1, -1, -1):
+            ch = syllable[idx]
+            if ch in _tone_marks:
+                return syllable[:idx] + _tone_marks[ch][tone - 1] + syllable[idx + 1:]
+        return syllable
+    s = s.replace('v', 'ü')
+    return re_module.sub(r'([a-züA-ZÜ]+)([0-5])', _convert_syllable, s)
+
+def _is_chinese_token(s: str) -> bool:
+    return any('\u4e00' <= ch <= '\u9fff' for ch in s)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -1091,6 +1124,54 @@ def get_stats():
 def import_export_page():
     """Render the import/export page"""
     return render_template('import_export.html')
+
+@app.route('/text-learner')
+@login_required
+def text_learner_page():
+    """Render the text learner page"""
+    return render_template('text_learner.html')
+
+@app.route('/api/annotate-text', methods=['POST'])
+@login_required
+def annotate_text():
+    """Tokenize Chinese text with jieba and look up each token in CC-CEDICT."""
+    try:
+        data = request.get_json()
+        if not data or not data.get('text', '').strip():
+            return jsonify({'error': 'Please enter some Chinese text'}), 400
+
+        text = data['text'].strip()
+        tokens = list(jieba.cut(text))
+        result = []
+
+        for tok in tokens:
+            if not _is_chinese_token(tok):
+                result.append({'token': tok, 'type': 'punctuation'})
+                continue
+
+            entry = _cccedict.get_entry(tok)
+            if entry:
+                pinyin_raw = entry.get('pinyin', '')
+                pinyin = _numbered_to_tonemarks(pinyin_raw) if pinyin_raw else ''
+                defs = entry.get('definitions', [])
+                result.append({
+                    'token': tok,
+                    'type': 'chinese',
+                    'pinyin': pinyin,
+                    'definitions': defs
+                })
+            else:
+                result.append({
+                    'token': tok,
+                    'type': 'chinese',
+                    'pinyin': '',
+                    'definitions': []
+                })
+
+        return jsonify({'tokens': result})
+    except Exception as e:
+        app.logger.error(f"Error annotating text: {e}")
+        return jsonify({'error': 'An error occurred while annotating text'}), 500
 
 @app.route('/debug/db-status')
 def debug_db_status():

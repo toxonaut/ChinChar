@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Learner - Character Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .text-learner-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .input-section {
+            background-color: #161b22;
+            border-radius: 12px;
+            border: 1px solid #21262d;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .input-section label {
+            display: block;
+            color: #e1e4e8;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .chinese-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 14px;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            line-height: 1.8;
+            background-color: #0d1117;
+            color: #e1e4e8;
+            resize: vertical;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .chinese-input:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.3);
+        }
+
+        .chinese-input::placeholder {
+            color: #484f58;
+        }
+
+        .annotate-btn {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 12px 28px;
+            background-color: #1f6feb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .annotate-btn:hover {
+            background-color: #388bfd;
+        }
+
+        .annotate-btn:disabled {
+            background-color: #30363d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+
+        .warning-message {
+            display: none;
+            margin-top: 10px;
+            padding: 10px 14px;
+            background-color: rgba(210, 153, 34, 0.15);
+            border: 1px solid rgba(210, 153, 34, 0.4);
+            border-radius: 6px;
+            color: #d29922;
+            font-size: 0.9rem;
+        }
+
+        .warning-message.visible {
+            display: block;
+        }
+
+        .annotation-output {
+            background-color: #161b22;
+            border-radius: 12px;
+            border: 1px solid #21262d;
+            padding: 28px;
+            line-height: 2.4;
+            font-size: 1.4rem;
+            display: none;
+        }
+
+        .annotation-output.visible {
+            display: block;
+        }
+
+        .token-chinese {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            padding: 2px 1px;
+            border-radius: 4px;
+            transition: background-color 0.15s;
+            color: #e1e4e8;
+        }
+
+        .token-chinese:hover {
+            background-color: #1f6feb33;
+        }
+
+        .token-chinese .token-popup {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #1c2128;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 12px 16px;
+            min-width: 200px;
+            max-width: 320px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: left;
+            white-space: normal;
+            pointer-events: none;
+            margin-bottom: 6px;
+        }
+
+        .token-chinese:hover .token-popup {
+            display: block;
+        }
+
+        .popup-hanzi {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #e1e4e8;
+            margin-bottom: 4px;
+        }
+
+        .popup-pinyin {
+            color: #ff6b6b;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .popup-defs {
+            color: #8b949e;
+            font-size: 0.85rem;
+        }
+
+        .popup-defs li {
+            margin-bottom: 2px;
+        }
+
+        .popup-no-entry {
+            color: #484f58;
+            font-style: italic;
+        }
+
+        .token-punct {
+            color: #484f58;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #58a6ff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            color: #79c0ff;
+            text-decoration: underline;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/cmaster_logo.jpg') }}" alt="Character Master Logo" class="logo">
+            </div>
+            <h1>Text Learner</h1>
+            <p>Paste Chinese text and hover over words to see pinyin and definitions</p>
+        </header>
+
+        <main>
+            <div class="nav-links">
+                <a href="/" class="back-link">← Back to Flashcards</a>
+            </div>
+
+            <div class="text-learner-container">
+                <div class="input-section">
+                    <label for="chinese-text">Paste Chinese text below:</label>
+                    <textarea id="chinese-text" class="chinese-input" placeholder="在这里粘贴中文文本..."></textarea>
+                    <button id="annotate-btn" class="annotate-btn">Annotate</button>
+                    <div id="warning-msg" class="warning-message">Please enter some Chinese text.</div>
+                </div>
+
+                <div id="annotation-output" class="annotation-output"></div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Character Master - A Chinese Character Learning App</p>
+        </footer>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('chinese-text');
+        const annotateBtn = document.getElementById('annotate-btn');
+        const warningMsg = document.getElementById('warning-msg');
+        const output = document.getElementById('annotation-output');
+
+        annotateBtn.addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            warningMsg.classList.remove('visible');
+            output.classList.remove('visible');
+            output.innerHTML = '';
+
+            if (!text) {
+                warningMsg.classList.add('visible');
+                return;
+            }
+
+            annotateBtn.disabled = true;
+            annotateBtn.textContent = 'Annotating...';
+
+            try {
+                const response = await fetch('/api/annotate-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    warningMsg.textContent = data.error || 'An error occurred.';
+                    warningMsg.classList.add('visible');
+                    return;
+                }
+
+                const tokens = data.tokens;
+                let html = '';
+
+                for (const tok of tokens) {
+                    if (tok.type === 'punctuation') {
+                        // Preserve newlines
+                        const escaped = tok.token.replace(/\n/g, '<br>');
+                        html += `<span class="token-punct">${escaped}</span>`;
+                    } else {
+                        let popupContent = `<div class="popup-hanzi">${tok.token}</div>`;
+                        if (tok.pinyin) {
+                            popupContent += `<div class="popup-pinyin">${tok.pinyin}</div>`;
+                        }
+                        if (tok.definitions && tok.definitions.length > 0) {
+                            popupContent += '<ul class="popup-defs">';
+                            for (const d of tok.definitions) {
+                                popupContent += `<li>${d}</li>`;
+                            }
+                            popupContent += '</ul>';
+                        } else if (!tok.pinyin) {
+                            popupContent += '<div class="popup-no-entry">No dictionary entry found</div>';
+                        }
+                        html += `<span class="token-chinese">${tok.token}<span class="token-popup">${popupContent}</span></span>`;
+                    }
+                }
+
+                output.innerHTML = html;
+                output.classList.add('visible');
+            } catch (err) {
+                console.error('Annotation error:', err);
+                warningMsg.textContent = 'An error occurred while annotating text.';
+                warningMsg.classList.add('visible');
+            } finally {
+                annotateBtn.disabled = false;
+                annotateBtn.textContent = 'Annotate';
+            }
+        });
+    </script>
+</body>
+</html>
