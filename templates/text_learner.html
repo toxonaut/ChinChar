@@ -351,10 +351,24 @@
                     body: JSON.stringify({ text })
                 });
 
-                const data = await response.json();
+                let data;
+                const rawText = await response.text();
+                try {
+                    data = JSON.parse(rawText);
+                } catch (jsonErr) {
+                    warningMsg.textContent = `Server returned non-JSON (HTTP ${response.status}): ${rawText.substring(0, 300)}`;
+                    warningMsg.classList.add('visible');
+                    return;
+                }
 
                 if (!response.ok) {
-                    warningMsg.textContent = data.error || 'An error occurred.';
+                    warningMsg.textContent = `Error (HTTP ${response.status}): ${data.error || JSON.stringify(data).substring(0, 300)}`;
+                    warningMsg.classList.add('visible');
+                    return;
+                }
+
+                if (!data.chunks || data.chunks.length === 0) {
+                    warningMsg.textContent = 'No analysis chunks were returned. Try shorter text or try again.';
                     warningMsg.classList.add('visible');
                     return;
                 }
@@ -376,7 +390,7 @@
                 grammarOutput.classList.add('visible');
             } catch (err) {
                 console.error('Analysis error:', err);
-                warningMsg.textContent = `Network/fetch error: ${err.message || err}`;
+                warningMsg.textContent = `Request failed: ${err.message || err}`;
                 warningMsg.classList.add('visible');
             } finally {
                 analyzeBtn.disabled = false;
