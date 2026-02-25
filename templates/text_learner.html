@@ -376,7 +376,7 @@
                 grammarOutput.classList.add('visible');
             } catch (err) {
                 console.error('Analysis error:', err);
-                warningMsg.textContent = 'An error occurred during analysis.';
+                warningMsg.textContent = `Network/fetch error: ${err.message || err}`;
                 warningMsg.classList.add('visible');
             } finally {
                 analyzeBtn.disabled = false;

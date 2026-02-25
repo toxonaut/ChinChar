@@ -1199,34 +1199,45 @@ def grammar_analysis():
 
         user_prompt = f'Analyze this Chinese text:\n\n{text}'
 
-        response = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            },
-            json={
-                'model': 'gpt-4.1',
-                'messages': [
-                    {'role': 'system', 'content': system_prompt},
-                    {'role': 'user', 'content': user_prompt}
-                ],
-                'temperature': 0.4,
-                'max_tokens': 3000
-            },
-            timeout=60
-        )
+        try:
+            response = requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'model': 'gpt-4.1',
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': user_prompt}
+                    ],
+                    'temperature': 0.4,
+                    'max_tokens': 4096
+                },
+                timeout=120
+            )
+        except requests.exceptions.Timeout:
+            app.logger.error(f"OpenAI timeout: text length={len(text)} chars")
+            return jsonify({'error': f'OpenAI request timed out. Your text is {len(text)} characters — try a shorter passage.'}), 504
+        except requests.exceptions.ConnectionError as ce:
+            app.logger.error(f"OpenAI connection error: {ce}")
+            return jsonify({'error': f'Could not connect to OpenAI: {ce}'}), 502
 
         if response.status_code != 200:
             try:
-                error_detail = response.json().get('error', {}).get('message', response.text[:200])
+                error_detail = response.json().get('error', {}).get('message', response.text[:500])
             except Exception:
-                error_detail = response.text[:200]
+                error_detail = response.text[:500]
             app.logger.error(f"OpenAI grammar error {response.status_code}: {error_detail}")
             return jsonify({'error': f'OpenAI API error ({response.status_code}): {error_detail}'}), 502
 
-        payload = response.json()
-        content = payload['choices'][0]['message']['content']
+        try:
+            payload = response.json()
+            content = payload['choices'][0]['message']['content']
+        except (KeyError, IndexError, ValueError) as pe:
+            app.logger.error(f"Failed to parse OpenAI response: {pe}. Body: {response.text[:500]}")
+            return jsonify({'error': f'Failed to parse OpenAI response: {pe}'}), 500
 
         # Parse the CHUNK: / EXPLANATION: pairs
         chunks = []
@@ -1255,14 +1266,20 @@ def grammar_analysis():
         if current_chunk is not None:
             chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
 
+        if not chunks:
+            app.logger.warning(f"No CHUNK/EXPLANATION pairs parsed. Raw LLM output: {content[:500]}")
+            return jsonify({'error': 'LLM returned an unexpected format — no sentence chunks were found. Try again or use shorter text.'}), 500
+
         # Annotate each chunk's sentence with jieba + CC-CEDICT tokens
         for chunk in chunks:
             chunk['tokens'] = _annotate_tokens(chunk['sentence'])
 
         return jsonify({'chunks': chunks})
     except Exception as e:
-        app.logger.error(f"Error in grammar analysis: {e}")
-        return jsonify({'error': 'An error occurred during grammar analysis'}), 500
+        import traceback
+        tb = traceback.format_exc()
+        app.logger.error(f"Grammar analysis error: {e}\n{tb}")
+        return jsonify({'error': f'Grammar analysis failed: {type(e).__name__}: {e}'}), 500
 
 @app.route('/api/annotate-text', methods=['POST'])
 @login_required
