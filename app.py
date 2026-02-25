@@ -1197,10 +1197,25 @@ def grammar_analysis():
             '- Do not add any other text, headers, or numbering outside of this format.'
         )
 
-        user_prompt = f'Analyze this Chinese text:\n\n{text}'
+        # Split long text into batches to avoid timeout on long passages
+        def _split_into_batches(full_text, max_chars=500):
+            """Split text into batches at newline boundaries, each ≤ max_chars."""
+            paragraphs = re_module.split(r'(?<=\n)', full_text)
+            batches = []
+            current = ''
+            for para in paragraphs:
+                if current and len(current) + len(para) > max_chars:
+                    batches.append(current)
+                    current = ''
+                current += para
+            if current.strip():
+                batches.append(current)
+            return batches if batches else [full_text]
 
-        try:
-            response = requests.post(
+        def _call_llm(batch_text):
+            """Send one batch to the LLM and return parsed chunks or raise."""
+            user_prompt = f'Analyze this Chinese text:\n\n{batch_text}'
+            resp = requests.post(
                 'https://api.openai.com/v1/chat/completions',
                 headers={
                     'Authorization': f'Bearer {api_key}',
@@ -1217,64 +1232,71 @@ def grammar_analysis():
                 },
                 timeout=120
             )
-        except requests.exceptions.Timeout:
-            app.logger.error(f"OpenAI timeout: text length={len(text)} chars")
-            return jsonify({'error': f'OpenAI request timed out. Your text is {len(text)} characters — try a shorter passage.'}), 504
-        except requests.exceptions.ConnectionError as ce:
-            app.logger.error(f"OpenAI connection error: {ce}")
-            return jsonify({'error': f'Could not connect to OpenAI: {ce}'}), 502
+            if resp.status_code != 200:
+                try:
+                    detail = resp.json().get('error', {}).get('message', resp.text[:500])
+                except Exception:
+                    detail = resp.text[:500]
+                raise RuntimeError(f'OpenAI API error ({resp.status_code}): {detail}')
 
-        if response.status_code != 200:
-            try:
-                error_detail = response.json().get('error', {}).get('message', response.text[:500])
-            except Exception:
-                error_detail = response.text[:500]
-            app.logger.error(f"OpenAI grammar error {response.status_code}: {error_detail}")
-            return jsonify({'error': f'OpenAI API error ({response.status_code}): {error_detail}'}), 502
-
-        try:
-            payload = response.json()
+            payload = resp.json()
             content = payload['choices'][0]['message']['content']
-        except (KeyError, IndexError, ValueError) as pe:
-            app.logger.error(f"Failed to parse OpenAI response: {pe}. Body: {response.text[:500]}")
-            return jsonify({'error': f'Failed to parse OpenAI response: {pe}'}), 500
+            return _parse_chunks(content)
 
-        # Parse the CHUNK: / EXPLANATION: pairs
-        chunks = []
-        current_chunk = None
-        current_explanation = None
-        collecting = None
+        def _parse_chunks(content):
+            """Parse CHUNK: / EXPLANATION: pairs from LLM output."""
+            chunks = []
+            current_chunk = None
+            current_explanation = None
+            collecting = None
+            for line in content.split('\n'):
+                stripped = line.strip()
+                if stripped.startswith('CHUNK:'):
+                    if current_chunk is not None:
+                        chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+                    current_chunk = stripped[len('CHUNK:'):].strip()
+                    current_explanation = None
+                    collecting = 'chunk'
+                elif stripped.startswith('EXPLANATION:'):
+                    current_explanation = stripped[len('EXPLANATION:'):].strip()
+                    collecting = 'explanation'
+                elif collecting == 'explanation' and stripped:
+                    current_explanation = (current_explanation or '') + '\n' + stripped
+                elif collecting == 'chunk' and stripped:
+                    current_chunk = (current_chunk or '') + stripped
+            if current_chunk is not None:
+                chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+            return chunks
 
-        for line in content.split('\n'):
-            stripped = line.strip()
-            if stripped.startswith('CHUNK:'):
-                # Save previous pair if exists
-                if current_chunk is not None:
-                    chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
-                current_chunk = stripped[len('CHUNK:'):].strip()
-                current_explanation = None
-                collecting = 'chunk'
-            elif stripped.startswith('EXPLANATION:'):
-                current_explanation = stripped[len('EXPLANATION:'):].strip()
-                collecting = 'explanation'
-            elif collecting == 'explanation' and stripped:
-                current_explanation = (current_explanation or '') + '\n' + stripped
-            elif collecting == 'chunk' and stripped:
-                current_chunk = (current_chunk or '') + stripped
+        batches = _split_into_batches(text)
+        app.logger.info(f"Grammar analysis: {len(text)} chars → {len(batches)} batch(es)")
 
-        # Don't forget the last pair
-        if current_chunk is not None:
-            chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+        all_chunks = []
+        for i, batch in enumerate(batches):
+            try:
+                batch_chunks = _call_llm(batch)
+                all_chunks.extend(batch_chunks)
+            except requests.exceptions.Timeout:
+                app.logger.error(f"OpenAI timeout on batch {i+1}/{len(batches)}: {len(batch)} chars")
+                return jsonify({'error': f'OpenAI timed out on part {i+1} of {len(batches)} ({len(batch)} chars). Try shorter text.'}), 504
+            except requests.exceptions.ConnectionError as ce:
+                app.logger.error(f"OpenAI connection error on batch {i+1}: {ce}")
+                return jsonify({'error': f'Could not connect to OpenAI on part {i+1}: {ce}'}), 502
+            except RuntimeError as re:
+                return jsonify({'error': str(re)}), 502
+            except (KeyError, IndexError, ValueError) as pe:
+                app.logger.error(f"Failed to parse OpenAI response on batch {i+1}: {pe}")
+                return jsonify({'error': f'Failed to parse OpenAI response on part {i+1}: {pe}'}), 500
 
-        if not chunks:
-            app.logger.warning(f"No CHUNK/EXPLANATION pairs parsed. Raw LLM output: {content[:500]}")
+        if not all_chunks:
+            app.logger.warning(f"No CHUNK/EXPLANATION pairs parsed from {len(batches)} batch(es)")
             return jsonify({'error': 'LLM returned an unexpected format — no sentence chunks were found. Try again or use shorter text.'}), 500
 
         # Annotate each chunk's sentence with jieba + CC-CEDICT tokens
-        for chunk in chunks:
+        for chunk in all_chunks:
             chunk['tokens'] = _annotate_tokens(chunk['sentence'])
 
-        return jsonify({'chunks': chunks})
+        return jsonify({'chunks': all_chunks})
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
