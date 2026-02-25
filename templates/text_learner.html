@@ -52,11 +52,11 @@
             color: #484f58;
         }
 
-        .annotate-btn {
+        .analyze-btn {
             display: inline-block;
             margin-top: 14px;
             padding: 12px 28px;
-            background-color: #1f6feb;
+            background-color: #8957e5;
             color: white;
             border: none;
             border-radius: 8px;
@@ -66,11 +66,11 @@
             transition: background-color 0.2s;
         }
 
-        .annotate-btn:hover {
-            background-color: #388bfd;
+        .analyze-btn:hover {
+            background-color: #a371f7;
         }
 
-        .annotate-btn:disabled {
+        .analyze-btn:disabled {
             background-color: #30363d;
             color: #484f58;
             cursor: not-allowed;
@@ -91,19 +91,6 @@
             display: block;
         }
 
-        .annotation-output {
-            background-color: #161b22;
-            border-radius: 12px;
-            border: 1px solid #21262d;
-            padding: 28px;
-            line-height: 2.4;
-            font-size: 1.4rem;
-            display: none;
-        }
-
-        .annotation-output.visible {
-            display: block;
-        }
 
         .token-chinese {
             position: relative;
@@ -196,35 +183,6 @@
             margin-bottom: 20px;
         }
 
-        .btn-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 14px;
-            flex-wrap: wrap;
-        }
-
-        .grammar-btn {
-            display: inline-block;
-            padding: 12px 28px;
-            background-color: #8957e5;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .grammar-btn:hover {
-            background-color: #a371f7;
-        }
-
-        .grammar-btn:disabled {
-            background-color: #30363d;
-            color: #484f58;
-            cursor: not-allowed;
-        }
 
         .grammar-output {
             display: none;
@@ -249,12 +207,10 @@
         .grammar-sentence {
             padding: 18px 22px;
             font-size: 1.35rem;
-            line-height: 1.9;
+            line-height: 2.2;
             color: #e1e4e8;
             border-right: 1px solid #21262d;
             font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            display: flex;
-            align-items: center;
         }
 
         .grammar-explanation {
@@ -299,14 +255,10 @@
                 <div class="input-section">
                     <label for="chinese-text">Paste Chinese text below:</label>
                     <textarea id="chinese-text" class="chinese-input" placeholder="在这里粘贴中文文本..."></textarea>
-                    <div class="btn-row">
-                        <button id="annotate-btn" class="annotate-btn">Annotate</button>
-                        <button id="grammar-btn" class="grammar-btn">Grammar Analysis</button>
-                    </div>
+                    <button id="analyze-btn" class="analyze-btn">Analyze</button>
                     <div id="warning-msg" class="warning-message">Please enter some Chinese text.</div>
                 </div>
 
-                <div id="annotation-output" class="annotation-output"></div>
                 <div id="grammar-output" class="grammar-output"></div>
             </div>
         </main>
@@ -318,84 +270,39 @@
 
     <script>
         const textInput = document.getElementById('chinese-text');
-        const annotateBtn = document.getElementById('annotate-btn');
-        const grammarBtn = document.getElementById('grammar-btn');
+        const analyzeBtn = document.getElementById('analyze-btn');
         const warningMsg = document.getElementById('warning-msg');
-        const output = document.getElementById('annotation-output');
         const grammarOutput = document.getElementById('grammar-output');
 
-        annotateBtn.addEventListener('click', async () => {
-            const text = textInput.value.trim();
-            warningMsg.classList.remove('visible');
-            output.classList.remove('visible');
-            grammarOutput.classList.remove('visible');
-            output.innerHTML = '';
-
-            if (!text) {
-                warningMsg.classList.add('visible');
-                return;
-            }
-
-            annotateBtn.disabled = true;
-            annotateBtn.textContent = 'Annotating...';
-
-            try {
-                const response = await fetch('/api/annotate-text', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    warningMsg.textContent = data.error || 'An error occurred.';
-                    warningMsg.classList.add('visible');
-                    return;
-                }
-
-                const tokens = data.tokens;
-                let html = '';
-
-                for (const tok of tokens) {
-                    if (tok.type === 'punctuation') {
-                        // Preserve newlines
-                        const escaped = tok.token.replace(/\n/g, '<br>');
-                        html += `<span class="token-punct">${escaped}</span>`;
-                    } else {
-                        let popupContent = `<div class="popup-hanzi">${tok.token}</div>`;
-                        if (tok.pinyin) {
-                            popupContent += `<div class="popup-pinyin">${tok.pinyin}</div>`;
-                        }
-                        if (tok.definitions && tok.definitions.length > 0) {
-                            popupContent += '<ul class="popup-defs">';
-                            for (const d of tok.definitions) {
-                                popupContent += `<li>${d}</li>`;
-                            }
-                            popupContent += '</ul>';
-                        } else if (!tok.pinyin) {
-                            popupContent += '<div class="popup-no-entry">No dictionary entry found</div>';
-                        }
-                        html += `<span class="token-chinese">${tok.token}<span class="token-popup">${popupContent}</span></span>`;
+        function renderTokens(tokens) {
+            let html = '';
+            for (const tok of tokens) {
+                if (tok.type === 'punctuation') {
+                    const escaped = tok.token.replace(/\n/g, '<br>');
+                    html += `<span class="token-punct">${escaped}</span>`;
+                } else {
+                    let popupContent = `<div class="popup-hanzi">${tok.token}</div>`;
+                    if (tok.pinyin) {
+                        popupContent += `<div class="popup-pinyin">${tok.pinyin}</div>`;
                     }
+                    if (tok.definitions && tok.definitions.length > 0) {
+                        popupContent += '<ul class="popup-defs">';
+                        for (const d of tok.definitions) {
+                            popupContent += `<li>${d}</li>`;
+                        }
+                        popupContent += '</ul>';
+                    } else if (!tok.pinyin) {
+                        popupContent += '<div class="popup-no-entry">No dictionary entry found</div>';
+                    }
+                    html += `<span class="token-chinese">${tok.token}<span class="token-popup">${popupContent}</span></span>`;
                 }
-
-                output.innerHTML = html;
-                output.classList.add('visible');
-            } catch (err) {
-                console.error('Annotation error:', err);
-                warningMsg.textContent = 'An error occurred while annotating text.';
-                warningMsg.classList.add('visible');
-            } finally {
-                annotateBtn.disabled = false;
-                annotateBtn.textContent = 'Annotate';
             }
-        });
+            return html;
+        }
 
-        grammarBtn.addEventListener('click', async () => {
+        analyzeBtn.addEventListener('click', async () => {
             const text = textInput.value.trim();
             warningMsg.classList.remove('visible');
-            output.classList.remove('visible');
             grammarOutput.classList.remove('visible');
             grammarOutput.innerHTML = '';
 
@@ -405,8 +312,8 @@
                 return;
             }
 
-            grammarBtn.disabled = true;
-            grammarBtn.textContent = 'Analyzing...';
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analyzing...';
 
             try {
                 const response = await fetch('/api/grammar-analysis', {
@@ -425,13 +332,13 @@
 
                 let html = '';
                 for (const chunk of data.chunks) {
-                    const escapedSentence = chunk.sentence;
+                    const annotatedHtml = chunk.tokens ? renderTokens(chunk.tokens) : chunk.sentence;
                     const escapedExplanation = chunk.explanation
                         .replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;');
                     html += `<div class="grammar-chunk">`;
-                    html += `<div class="grammar-sentence">${escapedSentence}</div>`;
+                    html += `<div class="grammar-sentence">${annotatedHtml}</div>`;
                     html += `<div class="grammar-explanation">${escapedExplanation}</div>`;
                     html += `</div>`;
                 }
@@ -439,12 +346,12 @@
                 grammarOutput.innerHTML = html;
                 grammarOutput.classList.add('visible');
             } catch (err) {
-                console.error('Grammar analysis error:', err);
-                warningMsg.textContent = 'An error occurred during grammar analysis.';
+                console.error('Analysis error:', err);
+                warningMsg.textContent = 'An error occurred during analysis.';
                 warningMsg.classList.add('visible');
             } finally {
-                grammarBtn.disabled = false;
-                grammarBtn.textContent = 'Grammar Analysis';
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analyze';
             }
         });
     </script>

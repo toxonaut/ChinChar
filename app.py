@@ -45,6 +45,43 @@ def _numbered_to_tonemarks(s: str) -> str:
 def _is_chinese_token(s: str) -> bool:
     return any('\u4e00' <= ch <= '\u9fff' for ch in s)
 
+def _annotate_tokens(text: str) -> list:
+    """Tokenize a Chinese string with jieba and look up each token in CC-CEDICT.
+    Returns a list of token dicts suitable for the frontend."""
+    tokens = list(jieba.cut(text))
+    result = []
+    for tok in tokens:
+        if not _is_chinese_token(tok):
+            result.append({'token': tok, 'type': 'punctuation'})
+            continue
+        entry = _cccedict.get_entry(tok)
+        if entry:
+            pinyin_raw = entry.get('pinyin', '')
+            pinyin = _numbered_to_tonemarks(pinyin_raw) if pinyin_raw else ''
+            result.append({
+                'token': tok, 'type': 'chinese',
+                'pinyin': pinyin, 'definitions': entry.get('definitions', [])
+            })
+        else:
+            if len(tok) > 1:
+                for ch in tok:
+                    if not _is_chinese_token(ch):
+                        result.append({'token': ch, 'type': 'punctuation'})
+                        continue
+                    ch_entry = _cccedict.get_entry(ch)
+                    if ch_entry:
+                        ch_pinyin_raw = ch_entry.get('pinyin', '')
+                        ch_pinyin = _numbered_to_tonemarks(ch_pinyin_raw) if ch_pinyin_raw else ''
+                        result.append({
+                            'token': ch, 'type': 'chinese',
+                            'pinyin': ch_pinyin, 'definitions': ch_entry.get('definitions', [])
+                        })
+                    else:
+                        result.append({'token': ch, 'type': 'chinese', 'pinyin': '', 'definitions': []})
+            else:
+                result.append({'token': tok, 'type': 'chinese', 'pinyin': '', 'definitions': []})
+    return result
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -1217,6 +1254,10 @@ def grammar_analysis():
         # Don't forget the last pair
         if current_chunk is not None:
             chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+
+        # Annotate each chunk's sentence with jieba + CC-CEDICT tokens
+        for chunk in chunks:
+            chunk['tokens'] = _annotate_tokens(chunk['sentence'])
 
         return jsonify({'chunks': chunks})
     except Exception as e:
