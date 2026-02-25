@@ -108,10 +108,7 @@
 
         .token-chinese .token-popup {
             display: none;
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
+            position: fixed;
             background-color: #1c2128;
             border: 1px solid #30363d;
             border-radius: 10px;
@@ -119,17 +116,12 @@
             min-width: 200px;
             max-width: 320px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            z-index: 100;
+            z-index: 9999;
             font-size: 0.85rem;
             line-height: 1.5;
             text-align: left;
             white-space: normal;
             pointer-events: none;
-            margin-bottom: 6px;
-        }
-
-        .token-chinese:hover .token-popup {
-            display: block;
         }
 
         .popup-hanzi {
@@ -199,18 +191,21 @@
             gap: 0;
             border: 1px solid #21262d;
             border-radius: 10px;
-            overflow: hidden;
             margin-bottom: 16px;
             background-color: #161b22;
         }
 
         .grammar-sentence {
             padding: 18px 22px;
+            padding-top: 28px;
             font-size: 1.35rem;
-            line-height: 2.2;
+            line-height: 2.4;
             color: #e1e4e8;
             border-right: 1px solid #21262d;
             font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            position: relative;
+            overflow: visible;
+            border-radius: 10px 0 0 10px;
         }
 
         .grammar-explanation {
@@ -219,6 +214,7 @@
             line-height: 1.7;
             color: #8b949e;
             white-space: pre-wrap;
+            border-radius: 0 10px 10px 0;
         }
 
         .grammar-explanation strong, .grammar-explanation b {
@@ -299,6 +295,39 @@
             }
             return html;
         }
+
+        // Position popups with fixed positioning to avoid overflow clipping
+        document.addEventListener('mouseenter', (e) => {
+            const token = e.target.closest('.token-chinese');
+            if (!token) return;
+            const popup = token.querySelector('.token-popup');
+            if (!popup) return;
+            const rect = token.getBoundingClientRect();
+            popup.style.display = 'block';
+            // Position above the token, centered horizontally
+            const popupRect = popup.getBoundingClientRect();
+            let left = rect.left + rect.width / 2 - popupRect.width / 2;
+            let top = rect.top - popupRect.height - 6;
+            // If popup goes above viewport, show below instead
+            if (top < 4) {
+                top = rect.bottom + 6;
+            }
+            // Keep within horizontal viewport
+            if (left < 4) left = 4;
+            if (left + popupRect.width > window.innerWidth - 4) {
+                left = window.innerWidth - popupRect.width - 4;
+            }
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
+        }, true);
+
+        document.addEventListener('mouseleave', (e) => {
+            const token = e.target.closest('.token-chinese');
+            if (!token) return;
+            const popup = token.querySelector('.token-popup');
+            if (!popup) return;
+            popup.style.display = 'none';
+        }, true);
 
         analyzeBtn.addEventListener('click', async () => {
             const text = textInput.value.trim();
