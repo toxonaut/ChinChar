@@ -45,6 +45,27 @@ def _numbered_to_tonemarks(s: str) -> str:
 def _is_chinese_token(s: str) -> bool:
     return any('\u4e00' <= ch <= '\u9fff' for ch in s)
 
+def _translate_zh_to_en(text: str) -> str:
+    """Translate Chinese text to English using the free Google Translate API."""
+    try:
+        resp = requests.get(
+            'https://translate.googleapis.com/translate_a/single',
+            params={
+                'client': 'gtx',
+                'sl': 'zh-CN',
+                'tl': 'en',
+                'dt': 't',
+                'q': text
+            },
+            timeout=10
+        )
+        if resp.status_code == 200:
+            result = resp.json()
+            return ''.join(part[0] for part in result[0] if part[0])
+    except Exception:
+        pass
+    return ''
+
 def _annotate_tokens(text: str) -> list:
     """Tokenize a Chinese string with jieba and look up each token in CC-CEDICT.
     Returns a list of token dicts suitable for the frontend."""
@@ -1292,9 +1313,10 @@ def grammar_analysis():
             app.logger.warning(f"No CHUNK/EXPLANATION pairs parsed from {len(batches)} batch(es)")
             return jsonify({'error': 'LLM returned an unexpected format — no sentence chunks were found. Try again or use shorter text.'}), 500
 
-        # Annotate each chunk's sentence with jieba + CC-CEDICT tokens
+        # Annotate each chunk's sentence with jieba + CC-CEDICT tokens and translate
         for chunk in all_chunks:
             chunk['tokens'] = _annotate_tokens(chunk['sentence'])
+            chunk['translation'] = _translate_zh_to_en(chunk['sentence'])
 
         return jsonify({'chunks': all_chunks})
     except Exception as e:
