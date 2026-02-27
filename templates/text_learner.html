@@ -7,11 +7,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         .container {
-            max-width: 90%;
+            max-width: 90% !important;
+            width: 90% !important;
         }
 
         .text-learner-container {
-            max-width: 90%;
+            width: 100%;
             margin: 0 auto;
         }
 
@@ -183,6 +184,7 @@
         .grammar-output {
             display: none;
             margin-top: 0;
+            width: 100%;
         }
 
         .grammar-output.visible {
@@ -191,7 +193,8 @@
 
         .grammar-chunk {
             display: grid;
-            grid-template-columns: 4fr 4fr 1.5fr;
+            width: 100%;
+            grid-template-columns: 6fr 6fr 1.5fr;
             gap: 0;
             border: 1px solid #21262d;
             border-radius: 10px;
