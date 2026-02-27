@@ -473,7 +473,7 @@
                                 .replace(/&/g, '&amp;')
                                 .replace(/</g, '&lt;')
                                 .replace(/>/g, '&gt;');
-                            const fam = c.familiarity || 0;
+                            const fam = (c.familiarity !== undefined && c.familiarity !== null) ? c.familiarity : 0;
                             const colorClass = fam === 2 ? 'char-known' : fam === 1 ? 'char-unsure' : 'char-unknown';
                             html += `<div class="char-row">`;
                             html += `<span class="char-hanzi ${colorClass}">${c.hanzi}</span>`;
