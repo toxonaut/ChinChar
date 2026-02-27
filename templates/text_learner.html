@@ -194,7 +194,7 @@
         .grammar-chunk {
             display: grid;
             width: 100%;
-            grid-template-columns: 6fr 6fr 1.5fr;
+            grid-template-columns: 12fr 12fr minmax(0, 1.5fr);
             gap: 0;
             border: 1px solid #21262d;
             border-radius: 10px;
@@ -239,17 +239,17 @@
         .grammar-characters {
             padding: 14px 16px;
             border-radius: 0 10px 10px 0;
-            overflow-y: visible;
+            overflow: hidden;
+            min-width: 0;
         }
 
         .char-row {
             display: flex;
             align-items: baseline;
-            gap: 8px;
+            gap: 6px;
             padding: 3px 0;
             font-size: 0.85rem;
             line-height: 1.4;
-            white-space: nowrap;
         }
 
         .char-hanzi {
@@ -271,6 +271,9 @@
             color: #8b949e;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+            flex: 1;
         }
 
         .grammar-explanation strong, .grammar-explanation b {
