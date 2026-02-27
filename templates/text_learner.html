@@ -6,6 +6,10 @@
     <title>Text Learner - Character Master</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
+        .container {
+            max-width: 2100px;
+        }
+
         .text-learner-container {
             max-width: 2100px;
             margin: 0 auto;
@@ -187,7 +191,7 @@
 
         .grammar-chunk {
             display: grid;
-            grid-template-columns: 2fr 2fr 1fr;
+            grid-template-columns: 2fr 2fr 1.5fr;
             gap: 0;
             border: 1px solid #21262d;
             border-radius: 10px;
@@ -232,8 +236,7 @@
         .grammar-characters {
             padding: 14px 16px;
             border-radius: 0 10px 10px 0;
-            overflow-y: auto;
-            max-height: 300px;
+            overflow-y: visible;
         }
 
         .char-row {
