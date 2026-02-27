@@ -1314,9 +1314,32 @@ def grammar_analysis():
             return jsonify({'error': 'LLM returned an unexpected format — no sentence chunks were found. Try again or use shorter text.'}), 500
 
         # Annotate each chunk's sentence with jieba + CC-CEDICT tokens and translate
+        # Also look up distinct characters from the Character DB table
+        from models import Character as CharModel
+        # Pre-fetch all characters from DB that appear in any chunk for efficiency
+        all_hanzi = set()
+        for chunk in all_chunks:
+            for ch in chunk['sentence']:
+                if '\u4e00' <= ch <= '\u9fff':
+                    all_hanzi.add(ch)
+        char_rows = CharModel.query.filter(CharModel.hanzi.in_(all_hanzi)).all() if all_hanzi else []
+        char_map = {c.hanzi: {'pinyin': c.pinyin, 'meaning': c.meaning} for c in char_rows}
+
         for chunk in all_chunks:
             chunk['tokens'] = _annotate_tokens(chunk['sentence'])
             chunk['translation'] = _translate_zh_to_en(chunk['sentence'])
+            # Distinct characters in order of appearance
+            seen = set()
+            chars = []
+            for ch in chunk['sentence']:
+                if '\u4e00' <= ch <= '\u9fff' and ch not in seen:
+                    seen.add(ch)
+                    info = char_map.get(ch)
+                    if info:
+                        chars.append({'hanzi': ch, 'pinyin': info['pinyin'], 'meaning': info['meaning']})
+                    else:
+                        chars.append({'hanzi': ch, 'pinyin': '', 'meaning': ''})
+            chunk['characters'] = chars
 
         return jsonify({'chunks': all_chunks})
     except Exception as e:

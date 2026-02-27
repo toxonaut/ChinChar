@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         .text-learner-container {
-            max-width: 1100px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
@@ -187,7 +187,7 @@
 
         .grammar-chunk {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 2fr 2fr 1fr;
             gap: 0;
             border: 1px solid #21262d;
             border-radius: 10px;
@@ -226,18 +226,60 @@
             line-height: 1.7;
             color: #8b949e;
             white-space: pre-wrap;
+            border-right: 1px solid #21262d;
+        }
+
+        .grammar-characters {
+            padding: 14px 16px;
             border-radius: 0 10px 10px 0;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+
+        .char-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            padding: 3px 0;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+
+        .char-hanzi {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #e1e4e8;
+            min-width: 1.4em;
+            text-align: center;
+            font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+
+        .char-pinyin {
+            color: #ff6b6b;
+            font-weight: 600;
+            min-width: 3em;
+        }
+
+        .char-meaning {
+            color: #8b949e;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .grammar-explanation strong, .grammar-explanation b {
             color: #e1e4e8;
         }
 
-        @media (max-width: 700px) {
+        @media (max-width: 900px) {
             .grammar-chunk {
                 grid-template-columns: 1fr;
             }
             .grammar-sentence {
+                border-right: none;
+                border-bottom: 1px solid #21262d;
+            }
+            .grammar-explanation {
                 border-right: none;
                 border-bottom: 1px solid #21262d;
             }
@@ -403,6 +445,21 @@
                     }
                     html += `</div>`;
                     html += `<div class="grammar-explanation">${escapedExplanation}</div>`;
+                    html += `<div class="grammar-characters">`;
+                    if (chunk.characters && chunk.characters.length > 0) {
+                        for (const c of chunk.characters) {
+                            const meaning = (c.meaning || '')
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;');
+                            html += `<div class="char-row">`;
+                            html += `<span class="char-hanzi">${c.hanzi}</span>`;
+                            html += `<span class="char-pinyin">${c.pinyin || ''}</span>`;
+                            html += `<span class="char-meaning">${meaning}</span>`;
+                            html += `</div>`;
+                        }
+                    }
+                    html += `</div>`;
                     html += `</div>`;
                 }
 
