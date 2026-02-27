@@ -1346,9 +1346,9 @@ def grammar_analysis():
                     info = char_map.get(ch)
                     if info:
                         familiarity = progress_map.get(info['id'], 0)
-                        chars.append({'hanzi': ch, 'pinyin': info['pinyin'], 'meaning': info['meaning'], 'familiarity': familiarity})
+                        chars.append({'id': info['id'], 'hanzi': ch, 'pinyin': info['pinyin'], 'meaning': info['meaning'], 'familiarity': familiarity})
                     else:
-                        chars.append({'hanzi': ch, 'pinyin': '', 'meaning': '', 'familiarity': 0})
+                        chars.append({'id': None, 'hanzi': ch, 'pinyin': '', 'meaning': '', 'familiarity': 0})
             chunk['characters'] = chars
 
         return jsonify({'chunks': all_chunks})

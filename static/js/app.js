@@ -66,7 +66,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // Functions
     async function init() {
         await loadStats();
-        await loadNextCharacter();
+        const params = new URLSearchParams(window.location.search);
+        const charId = params.get('char_id');
+        if (charId) {
+            await loadSpecificCharacter(charId);
+            // Clean up the URL so refresh loads a random character
+            window.history.replaceState({}, '', '/');
+        } else {
+            await loadNextCharacter();
+        }
+    }
+
+    async function loadSpecificCharacter(charId) {
+        try {
+            const response = await fetch(`/api/character/${charId}`);
+            const data = await response.json();
+            if (!response.ok || (data && data.error)) {
+                console.error('Error loading specific character:', data.error);
+                await loadNextCharacter();
+                return;
+            }
+            currentCharacter = data;
+            characterHanzi.textContent = data.hanzi;
+            flashcard.classList.remove('flipped');
+            await loadCharacterDetails(data.id);
+        } catch (error) {
+            console.error('Error loading specific character:', error);
+            await loadNextCharacter();
+        }
     }
     
     async function loadNextCharacter() {

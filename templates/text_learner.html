@@ -259,6 +259,11 @@
             min-width: 1.4em;
             text-align: center;
             font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            text-decoration: none;
+        }
+
+        a.char-hanzi:hover {
+            text-decoration: underline;
         }
 
         .char-hanzi.char-unknown {
@@ -476,7 +481,11 @@
                             const fam = (c.familiarity !== undefined && c.familiarity !== null) ? c.familiarity : 0;
                             const colorClass = fam === 2 ? 'char-known' : fam === 1 ? 'char-unsure' : 'char-unknown';
                             html += `<div class="char-row">`;
-                            html += `<span class="char-hanzi ${colorClass}">${c.hanzi}</span>`;
+                            if (c.id) {
+                                html += `<a href="/?char_id=${c.id}" class="char-hanzi ${colorClass}">${c.hanzi}</a>`;
+                            } else {
+                                html += `<span class="char-hanzi ${colorClass}">${c.hanzi}</span>`;
+                            }
                             html += `<span class="char-pinyin">${c.pinyin || ''}</span>`;
                             html += `<span class="char-meaning">${meaning}</span>`;
                             html += `</div>`;
