@@ -261,6 +261,18 @@
             font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
         }
 
+        .char-unknown {
+            color: #ff4d4d;
+        }
+
+        .char-unsure {
+            color: #f0c040;
+        }
+
+        .char-known {
+            color: #3fb950;
+        }
+
         .char-pinyin {
             color: #ff6b6b;
             font-weight: 600;
@@ -461,8 +473,10 @@
                                 .replace(/&/g, '&amp;')
                                 .replace(/</g, '&lt;')
                                 .replace(/>/g, '&gt;');
+                            const fam = c.familiarity || 0;
+                            const colorClass = fam === 2 ? 'char-known' : fam === 1 ? 'char-unsure' : 'char-unknown';
                             html += `<div class="char-row">`;
-                            html += `<span class="char-hanzi">${c.hanzi}</span>`;
+                            html += `<span class="char-hanzi ${colorClass}">${c.hanzi}</span>`;
                             html += `<span class="char-pinyin">${c.pinyin || ''}</span>`;
                             html += `<span class="char-meaning">${meaning}</span>`;
                             html += `</div>`;

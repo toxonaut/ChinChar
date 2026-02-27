@@ -1315,7 +1315,7 @@ def grammar_analysis():
 
         # Annotate each chunk's sentence with jieba + CC-CEDICT tokens and translate
         # Also look up distinct characters from the Character DB table
-        from models import Character as CharModel
+        from models import Character as CharModel, UserProgress
         # Pre-fetch all characters from DB that appear in any chunk for efficiency
         all_hanzi = set()
         for chunk in all_chunks:
@@ -1323,7 +1323,16 @@ def grammar_analysis():
                 if '\u4e00' <= ch <= '\u9fff':
                     all_hanzi.add(ch)
         char_rows = CharModel.query.filter(CharModel.hanzi.in_(all_hanzi)).all() if all_hanzi else []
-        char_map = {c.hanzi: {'pinyin': c.pinyin, 'meaning': c.meaning} for c in char_rows}
+        char_map = {c.hanzi: {'id': c.id, 'pinyin': c.pinyin, 'meaning': c.meaning} for c in char_rows}
+
+        # Pre-fetch user progress for all characters in one query
+        char_ids = [info['id'] for info in char_map.values()]
+        progress_rows = UserProgress.query.filter(
+            UserProgress.user_id == current_user.id,
+            UserProgress.character_id.in_(char_ids)
+        ).all() if char_ids else []
+        # Map character_id -> familiarity (0=unknown, 1=unsure, 2=known)
+        progress_map = {p.character_id: p.familiarity for p in progress_rows}
 
         for chunk in all_chunks:
             chunk['tokens'] = _annotate_tokens(chunk['sentence'])
@@ -1336,9 +1345,10 @@ def grammar_analysis():
                     seen.add(ch)
                     info = char_map.get(ch)
                     if info:
-                        chars.append({'hanzi': ch, 'pinyin': info['pinyin'], 'meaning': info['meaning']})
+                        familiarity = progress_map.get(info['id'], 0)
+                        chars.append({'hanzi': ch, 'pinyin': info['pinyin'], 'meaning': info['meaning'], 'familiarity': familiarity})
                     else:
-                        chars.append({'hanzi': ch, 'pinyin': '', 'meaning': ''})
+                        chars.append({'hanzi': ch, 'pinyin': '', 'meaning': '', 'familiarity': 0})
             chunk['characters'] = chars
 
         return jsonify({'chunks': all_chunks})
