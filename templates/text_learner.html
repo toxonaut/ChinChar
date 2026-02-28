@@ -455,7 +455,7 @@
         }
 
         // Restore previous state from sessionStorage on page load
-        (function restoreState() {
+        (async function restoreState() {
             const savedText = sessionStorage.getItem('textLearnerInput');
             const savedChunks = sessionStorage.getItem('textLearnerChunks');
             if (savedText) {
@@ -464,6 +464,45 @@
             if (savedChunks) {
                 try {
                     const chunks = JSON.parse(savedChunks);
+
+                    // Collect all character IDs to refresh familiarity
+                    const charIds = [];
+                    for (const chunk of chunks) {
+                        if (chunk.characters) {
+                            for (const c of chunk.characters) {
+                                if (c.id) charIds.push(c.id);
+                            }
+                        }
+                    }
+
+                    // Fetch fresh familiarity from server
+                    if (charIds.length > 0) {
+                        try {
+                            const resp = await fetch('/api/character-familiarity', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ids: charIds })
+                            });
+                            if (resp.ok) {
+                                const famData = await resp.json();
+                                const famMap = famData.familiarity || {};
+                                for (const chunk of chunks) {
+                                    if (chunk.characters) {
+                                        for (const c of chunk.characters) {
+                                            if (c.id && famMap[String(c.id)] !== undefined) {
+                                                c.familiarity = famMap[String(c.id)];
+                                            }
+                                        }
+                                    }
+                                }
+                                // Save updated chunks back
+                                sessionStorage.setItem('textLearnerChunks', JSON.stringify(chunks));
+                            }
+                        } catch (e) {
+                            // Continue with stale colors if fetch fails
+                        }
+                    }
+
                     grammarOutput.innerHTML = buildAnalysisHtml(chunks);
                     grammarOutput.classList.add('visible');
                 } catch (e) {

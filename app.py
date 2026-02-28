@@ -1360,6 +1360,26 @@ def grammar_analysis():
         app.logger.error(f"Grammar analysis error: {e}\n{tb}")
         return jsonify({'error': f'Grammar analysis failed: {type(e).__name__}: {e}'}), 500
 
+@app.route('/api/character-familiarity', methods=['POST'])
+@login_required
+def character_familiarity():
+    """Return current familiarity for a list of character IDs."""
+    try:
+        data = request.get_json()
+        ids = data.get('ids', []) if data else []
+        if not ids:
+            return jsonify({'familiarity': {}})
+        from models import UserProgress
+        rows = UserProgress.query.filter(
+            UserProgress.user_id == current_user.id,
+            UserProgress.character_id.in_(ids)
+        ).all()
+        result = {str(r.character_id): r.familiarity for r in rows}
+        return jsonify({'familiarity': result})
+    except Exception as e:
+        app.logger.error(f"Error fetching familiarity: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/annotate-text', methods=['POST'])
 @login_required
 def annotate_text():
