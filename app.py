@@ -1192,7 +1192,7 @@ def text_learner_page():
 @app.route('/api/grammar-analysis', methods=['POST'])
 @login_required
 def grammar_analysis():
-    """Send Chinese text to GPT-4.1 for sentence-by-sentence grammar analysis."""
+    """Send Chinese text to GPT-4.1-mini for sentence-by-sentence grammar analysis."""
     try:
         data = request.get_json()
         if not data or not data.get('text', '').strip():
@@ -1243,7 +1243,7 @@ def grammar_analysis():
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': 'gpt-4.1',
+                    'model': 'gpt-4.1-mini',
                     'messages': [
                         {'role': 'system', 'content': system_prompt},
                         {'role': 'user', 'content': user_prompt}
