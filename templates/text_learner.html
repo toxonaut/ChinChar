@@ -533,34 +533,80 @@
                     body: JSON.stringify({ text })
                 });
 
-                let data;
-                const rawText = await response.text();
-                try {
-                    data = JSON.parse(rawText);
-                } catch (jsonErr) {
-                    warningMsg.textContent = `Server returned non-JSON (HTTP ${response.status}): ${rawText.substring(0, 300)}`;
-                    warningMsg.classList.add('visible');
-                    return;
-                }
-
                 if (!response.ok) {
-                    warningMsg.textContent = `Error (HTTP ${response.status}): ${data.error || JSON.stringify(data).substring(0, 300)}`;
+                    const rawText = await response.text();
+                    let errMsg;
+                    try {
+                        const errData = JSON.parse(rawText);
+                        errMsg = errData.error || rawText.substring(0, 300);
+                    } catch (e) {
+                        errMsg = rawText.substring(0, 300);
+                    }
+                    warningMsg.textContent = `Error (HTTP ${response.status}): ${errMsg}`;
                     warningMsg.classList.add('visible');
                     return;
                 }
 
-                if (!data.chunks || data.chunks.length === 0) {
+                grammarOutput.classList.add('visible');
+                const allChunks = [];
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // Process complete lines (newline-delimited JSON)
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // keep incomplete last line in buffer
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        let msg;
+                        try {
+                            msg = JSON.parse(line);
+                        } catch (e) {
+                            continue;
+                        }
+
+                        if (msg.error) {
+                            warningMsg.textContent = msg.error;
+                            warningMsg.classList.add('visible');
+                            continue;
+                        }
+
+                        if (msg.chunk) {
+                            allChunks.push(msg.chunk);
+                            // Append this chunk's HTML to the output
+                            grammarOutput.innerHTML += buildAnalysisHtml([msg.chunk]);
+                        }
+                    }
+                }
+
+                // Process any remaining buffer
+                if (buffer.trim()) {
+                    try {
+                        const msg = JSON.parse(buffer);
+                        if (msg.error) {
+                            warningMsg.textContent = msg.error;
+                            warningMsg.classList.add('visible');
+                        } else if (msg.chunk) {
+                            allChunks.push(msg.chunk);
+                            grammarOutput.innerHTML += buildAnalysisHtml([msg.chunk]);
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+
+                if (allChunks.length === 0) {
                     warningMsg.textContent = 'No analysis chunks were returned. Try shorter text or try again.';
                     warningMsg.classList.add('visible');
-                    return;
                 }
-
-                grammarOutput.innerHTML = buildAnalysisHtml(data.chunks);
-                grammarOutput.classList.add('visible');
 
                 // Save state to sessionStorage
                 sessionStorage.setItem('textLearnerInput', text);
-                sessionStorage.setItem('textLearnerChunks', JSON.stringify(data.chunks));
+                sessionStorage.setItem('textLearnerChunks', JSON.stringify(allChunks));
             } catch (err) {
                 console.error('Analysis error:', err);
                 warningMsg.textContent = `Request failed: ${err.message || err}`;

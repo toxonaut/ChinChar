@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify, make_response, redirect, url_for, session, flash
+from flask import Flask, render_template, request, jsonify, make_response, redirect, url_for, session, flash, Response
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Character, UserProgress, get_next_character, update_progress, User, CharacterAIDescription, UserCharacterTuning
 import random
@@ -1192,173 +1192,172 @@ def text_learner_page():
 @app.route('/api/grammar-analysis', methods=['POST'])
 @login_required
 def grammar_analysis():
-    """Send Chinese text to GPT-4.1-mini for sentence-by-sentence grammar analysis."""
-    try:
-        data = request.get_json()
-        if not data or not data.get('text', '').strip():
-            return jsonify({'error': 'Please enter some Chinese text'}), 400
+    """Stream Chinese text grammar analysis: each annotated chunk is sent as newline-delimited JSON."""
+    import json as json_module
 
-        text = data['text'].strip()
+    data = request.get_json()
+    if not data or not data.get('text', '').strip():
+        return jsonify({'error': 'Please enter some Chinese text'}), 400
 
-        api_key = os.environ.get('api_key') or os.environ.get('API_KEY')
-        if not api_key:
-            return jsonify({'error': 'Missing API key. Set api_key or API_KEY in environment variables.'}), 500
+    text = data['text'].strip()
 
-        system_prompt = (
-            'You are a Chinese language teacher. You break down Chinese text for learners. '
-            'For the given text, split it into natural sentence chunks (a sentence or meaningful sentence fragment per chunk). '
-            'For each chunk output EXACTLY this format:\n'
-            'CHUNK: [the Chinese sentence/fragment exactly as given]\n'
-            'EXPLANATION: [grammar explanation of that chunk]\n\n'
-            'Rules:\n'
-            '- Every word/phrase in the chunk must be explained with pinyin (using tone marks like ā á ǎ à, NOT numbers) and English meaning.\n'
-            '- Explain grammar patterns used (e.g. 得-complement, 把-construction, 了 aspect marker, etc.).\n'
-            '- Keep the original text exactly, do not modify or skip any part.\n'
-            '- Each CHUNK/EXPLANATION pair must be separated by a blank line.\n'
-            '- Do not add any other text, headers, or numbering outside of this format.'
-        )
+    api_key = os.environ.get('api_key') or os.environ.get('API_KEY')
+    if not api_key:
+        return jsonify({'error': 'Missing API key. Set api_key or API_KEY in environment variables.'}), 500
 
-        # Split long text into batches to avoid timeout on long passages
-        def _split_into_batches(full_text, max_chars=500):
-            """Split text into batches at newline boundaries, each ≤ max_chars."""
-            paragraphs = re_module.split(r'(?<=\n)', full_text)
-            batches = []
-            current = ''
-            for para in paragraphs:
-                if current and len(current) + len(para) > max_chars:
-                    batches.append(current)
-                    current = ''
-                current += para
-            if current.strip():
+    system_prompt = (
+        'You are a Chinese language teacher. You break down Chinese text for learners. '
+        'For the given text, split it into natural sentence chunks (a sentence or meaningful sentence fragment per chunk). '
+        'For each chunk output EXACTLY this format:\n'
+        'CHUNK: [the Chinese sentence/fragment exactly as given]\n'
+        'EXPLANATION: [grammar explanation of that chunk]\n\n'
+        'Rules:\n'
+        '- Every word/phrase in the chunk must be explained with pinyin (using tone marks like ā á ǎ à, NOT numbers) and English meaning.\n'
+        '- Explain grammar patterns used (e.g. 得-complement, 把-construction, 了 aspect marker, etc.).\n'
+        '- Keep the original text exactly, do not modify or skip any part.\n'
+        '- Each CHUNK/EXPLANATION pair must be separated by a blank line.\n'
+        '- Do not add any other text, headers, or numbering outside of this format.'
+    )
+
+    def _split_into_batches(full_text, max_chars=500):
+        paragraphs = re_module.split(r'(?<=\n)', full_text)
+        batches = []
+        current = ''
+        for para in paragraphs:
+            if current and len(current) + len(para) > max_chars:
                 batches.append(current)
-            return batches if batches else [full_text]
+                current = ''
+            current += para
+        if current.strip():
+            batches.append(current)
+        return batches if batches else [full_text]
 
-        def _call_llm(batch_text):
-            """Send one batch to the LLM and return parsed chunks or raise."""
-            user_prompt = f'Analyze this Chinese text:\n\n{batch_text}'
-            resp = requests.post(
-                'https://api.openai.com/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {api_key}',
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'model': 'gpt-4.1-mini',
-                    'messages': [
-                        {'role': 'system', 'content': system_prompt},
-                        {'role': 'user', 'content': user_prompt}
-                    ],
-                    'temperature': 0.4,
-                    'max_tokens': 4096
-                },
-                timeout=120
-            )
-            if resp.status_code != 200:
-                try:
-                    detail = resp.json().get('error', {}).get('message', resp.text[:500])
-                except Exception:
-                    detail = resp.text[:500]
-                raise RuntimeError(f'OpenAI API error ({resp.status_code}): {detail}')
+    def _call_llm(batch_text):
+        user_prompt = f'Analyze this Chinese text:\n\n{batch_text}'
+        resp = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-4.1-mini',
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_prompt}
+                ],
+                'temperature': 0.4,
+                'max_tokens': 4096
+            },
+            timeout=120
+        )
+        if resp.status_code != 200:
+            try:
+                detail = resp.json().get('error', {}).get('message', resp.text[:500])
+            except Exception:
+                detail = resp.text[:500]
+            raise RuntimeError(f'OpenAI API error ({resp.status_code}): {detail}')
+        payload = resp.json()
+        content = payload['choices'][0]['message']['content']
+        return _parse_chunks(content)
 
-            payload = resp.json()
-            content = payload['choices'][0]['message']['content']
-            return _parse_chunks(content)
+    def _parse_chunks(content):
+        chunks = []
+        current_chunk = None
+        current_explanation = None
+        collecting = None
+        for line in content.split('\n'):
+            stripped = line.strip()
+            if stripped.startswith('CHUNK:'):
+                if current_chunk is not None:
+                    chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+                current_chunk = stripped[len('CHUNK:'):].strip()
+                current_explanation = None
+                collecting = 'chunk'
+            elif stripped.startswith('EXPLANATION:'):
+                current_explanation = stripped[len('EXPLANATION:'):].strip()
+                collecting = 'explanation'
+            elif collecting == 'explanation' and stripped:
+                current_explanation = (current_explanation or '') + '\n' + stripped
+            elif collecting == 'chunk' and stripped:
+                current_chunk = (current_chunk or '') + stripped
+        if current_chunk is not None:
+            chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
+        return chunks
 
-        def _parse_chunks(content):
-            """Parse CHUNK: / EXPLANATION: pairs from LLM output."""
-            chunks = []
-            current_chunk = None
-            current_explanation = None
-            collecting = None
-            for line in content.split('\n'):
-                stripped = line.strip()
-                if stripped.startswith('CHUNK:'):
-                    if current_chunk is not None:
-                        chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
-                    current_chunk = stripped[len('CHUNK:'):].strip()
-                    current_explanation = None
-                    collecting = 'chunk'
-                elif stripped.startswith('EXPLANATION:'):
-                    current_explanation = stripped[len('EXPLANATION:'):].strip()
-                    collecting = 'explanation'
-                elif collecting == 'explanation' and stripped:
-                    current_explanation = (current_explanation or '') + '\n' + stripped
-                elif collecting == 'chunk' and stripped:
-                    current_chunk = (current_chunk or '') + stripped
-            if current_chunk is not None:
-                chunks.append({'sentence': current_chunk.strip(), 'explanation': (current_explanation or '').strip()})
-            return chunks
+    def _enrich_chunk(chunk, char_map, progress_map):
+        """Add tokens, translation, and character info to a chunk."""
+        chunk['tokens'] = _annotate_tokens(chunk['sentence'])
+        chunk['translation'] = _translate_zh_to_en(chunk['sentence'])
+        seen = set()
+        chars = []
+        for ch in chunk['sentence']:
+            if '\u4e00' <= ch <= '\u9fff' and ch not in seen:
+                seen.add(ch)
+                info = char_map.get(ch)
+                if info:
+                    familiarity = progress_map.get(info['id'], 0)
+                    raw_pinyin = info['pinyin']
+                    converted_pinyin = '/'.join(_numbered_to_tonemarks(p.strip()) for p in raw_pinyin.split('/')) if raw_pinyin else ''
+                    chars.append({'id': info['id'], 'hanzi': ch, 'pinyin': converted_pinyin, 'meaning': info['meaning'], 'familiarity': familiarity})
+                else:
+                    chars.append({'id': None, 'hanzi': ch, 'pinyin': '', 'meaning': '', 'familiarity': 0})
+        chunk['characters'] = chars
+        return chunk
 
-        batches = _split_into_batches(text)
-        app.logger.info(f"Grammar analysis: {len(text)} chars → {len(batches)} batch(es)")
+    # Pre-load character and progress data within request context
+    from models import Character as CharModel, UserProgress
+    user_id = current_user.id
 
-        all_chunks = []
+    # We need all hanzi from the text to pre-fetch DB rows
+    all_hanzi = set()
+    for ch in text:
+        if '\u4e00' <= ch <= '\u9fff':
+            all_hanzi.add(ch)
+    char_rows = CharModel.query.filter(CharModel.hanzi.in_(all_hanzi)).all() if all_hanzi else []
+    char_map = {c.hanzi: {'id': c.id, 'pinyin': c.pinyin, 'meaning': c.meaning} for c in char_rows}
+    char_ids = [info['id'] for info in char_map.values()]
+    progress_rows = UserProgress.query.filter(
+        UserProgress.user_id == user_id,
+        UserProgress.character_id.in_(char_ids)
+    ).all() if char_ids else []
+    progress_map = {p.character_id: p.familiarity for p in progress_rows}
+
+    batches = _split_into_batches(text)
+    app.logger.info(f"Grammar analysis (streaming): {len(text)} chars → {len(batches)} batch(es)")
+
+    def generate():
+        chunk_count = 0
         for i, batch in enumerate(batches):
             try:
                 batch_chunks = _call_llm(batch)
-                all_chunks.extend(batch_chunks)
             except requests.exceptions.Timeout:
-                app.logger.error(f"OpenAI timeout on batch {i+1}/{len(batches)}: {len(batch)} chars")
-                return jsonify({'error': f'OpenAI timed out on part {i+1} of {len(batches)} ({len(batch)} chars). Try shorter text.'}), 504
+                app.logger.error(f"OpenAI timeout on batch {i+1}/{len(batches)}")
+                yield json_module.dumps({'error': f'OpenAI timed out on part {i+1} of {len(batches)}. Try shorter text.'}) + '\n'
+                return
             except requests.exceptions.ConnectionError as ce:
                 app.logger.error(f"OpenAI connection error on batch {i+1}: {ce}")
-                return jsonify({'error': f'Could not connect to OpenAI on part {i+1}: {ce}'}), 502
-            except RuntimeError as re:
-                return jsonify({'error': str(re)}), 502
+                yield json_module.dumps({'error': f'Could not connect to OpenAI on part {i+1}: {ce}'}) + '\n'
+                return
+            except RuntimeError as re_err:
+                yield json_module.dumps({'error': str(re_err)}) + '\n'
+                return
             except (KeyError, IndexError, ValueError) as pe:
                 app.logger.error(f"Failed to parse OpenAI response on batch {i+1}: {pe}")
-                return jsonify({'error': f'Failed to parse OpenAI response on part {i+1}: {pe}'}), 500
+                yield json_module.dumps({'error': f'Failed to parse OpenAI response on part {i+1}: {pe}'}) + '\n'
+                return
 
-        if not all_chunks:
-            app.logger.warning(f"No CHUNK/EXPLANATION pairs parsed from {len(batches)} batch(es)")
-            return jsonify({'error': 'LLM returned an unexpected format — no sentence chunks were found. Try again or use shorter text.'}), 500
+            for chunk in batch_chunks:
+                enriched = _enrich_chunk(chunk, char_map, progress_map)
+                yield json_module.dumps({'chunk': enriched}, ensure_ascii=False) + '\n'
+                chunk_count += 1
 
-        # Annotate each chunk's sentence with jieba + CC-CEDICT tokens and translate
-        # Also look up distinct characters from the Character DB table
-        from models import Character as CharModel, UserProgress
-        # Pre-fetch all characters from DB that appear in any chunk for efficiency
-        all_hanzi = set()
-        for chunk in all_chunks:
-            for ch in chunk['sentence']:
-                if '\u4e00' <= ch <= '\u9fff':
-                    all_hanzi.add(ch)
-        char_rows = CharModel.query.filter(CharModel.hanzi.in_(all_hanzi)).all() if all_hanzi else []
-        char_map = {c.hanzi: {'id': c.id, 'pinyin': c.pinyin, 'meaning': c.meaning} for c in char_rows}
+        if chunk_count == 0:
+            yield json_module.dumps({'error': 'LLM returned an unexpected format — no sentence chunks were found. Try again or use shorter text.'}) + '\n'
+        else:
+            yield json_module.dumps({'done': True}) + '\n'
 
-        # Pre-fetch user progress for all characters in one query
-        char_ids = [info['id'] for info in char_map.values()]
-        progress_rows = UserProgress.query.filter(
-            UserProgress.user_id == current_user.id,
-            UserProgress.character_id.in_(char_ids)
-        ).all() if char_ids else []
-        # Map character_id -> familiarity (0=unknown, 1=unsure, 2=known)
-        progress_map = {p.character_id: p.familiarity for p in progress_rows}
-
-        for chunk in all_chunks:
-            chunk['tokens'] = _annotate_tokens(chunk['sentence'])
-            chunk['translation'] = _translate_zh_to_en(chunk['sentence'])
-            # Distinct characters in order of appearance
-            seen = set()
-            chars = []
-            for ch in chunk['sentence']:
-                if '\u4e00' <= ch <= '\u9fff' and ch not in seen:
-                    seen.add(ch)
-                    info = char_map.get(ch)
-                    if info:
-                        familiarity = progress_map.get(info['id'], 0)
-                        raw_pinyin = info['pinyin']
-                        converted_pinyin = '/'.join(_numbered_to_tonemarks(p.strip()) for p in raw_pinyin.split('/')) if raw_pinyin else ''
-                        chars.append({'id': info['id'], 'hanzi': ch, 'pinyin': converted_pinyin, 'meaning': info['meaning'], 'familiarity': familiarity})
-                    else:
-                        chars.append({'id': None, 'hanzi': ch, 'pinyin': '', 'meaning': '', 'familiarity': 0})
-            chunk['characters'] = chars
-
-        return jsonify({'chunks': all_chunks})
-    except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
-        app.logger.error(f"Grammar analysis error: {e}\n{tb}")
-        return jsonify({'error': f'Grammar analysis failed: {type(e).__name__}: {e}'}), 500
+    return Response(generate(), mimetype='application/x-ndjson')
 
 @app.route('/api/character-familiarity', methods=['POST'])
 @login_required
