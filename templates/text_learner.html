@@ -409,6 +409,69 @@
             popup.style.display = 'none';
         }, true);
 
+        function buildAnalysisHtml(chunks) {
+            let html = '';
+            for (const chunk of chunks) {
+                const annotatedHtml = chunk.tokens ? renderTokens(chunk.tokens) : chunk.sentence;
+                const translation = (chunk.translation || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                const escapedExplanation = chunk.explanation
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                html += `<div class="grammar-chunk">`;
+                html += `<div class="grammar-sentence">${annotatedHtml}`;
+                if (translation) {
+                    html += `<span class="grammar-translation">${translation}</span>`;
+                }
+                html += `</div>`;
+                html += `<div class="grammar-explanation">${escapedExplanation}</div>`;
+                html += `<div class="grammar-characters">`;
+                if (chunk.characters && chunk.characters.length > 0) {
+                    for (const c of chunk.characters) {
+                        const meaning = (c.meaning || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                        const fam = (c.familiarity !== undefined && c.familiarity !== null) ? c.familiarity : 0;
+                        const colorClass = fam === 2 ? 'char-known' : fam === 1 ? 'char-unsure' : 'char-unknown';
+                        html += `<div class="char-row">`;
+                        if (c.id) {
+                            html += `<a href="/?char_id=${c.id}" class="char-hanzi ${colorClass}">${c.hanzi}</a>`;
+                        } else {
+                            html += `<span class="char-hanzi ${colorClass}">${c.hanzi}</span>`;
+                        }
+                        html += `<span class="char-pinyin">${c.pinyin || ''}</span>`;
+                        html += `<span class="char-meaning">${meaning}</span>`;
+                        html += `</div>`;
+                    }
+                }
+                html += `</div>`;
+                html += `</div>`;
+            }
+            return html;
+        }
+
+        // Restore previous state from sessionStorage on page load
+        (function restoreState() {
+            const savedText = sessionStorage.getItem('textLearnerInput');
+            const savedChunks = sessionStorage.getItem('textLearnerChunks');
+            if (savedText) {
+                textInput.value = savedText;
+            }
+            if (savedChunks) {
+                try {
+                    const chunks = JSON.parse(savedChunks);
+                    grammarOutput.innerHTML = buildAnalysisHtml(chunks);
+                    grammarOutput.classList.add('visible');
+                } catch (e) {
+                    // Ignore corrupt data
+                }
+            }
+        })();
+
         analyzeBtn.addEventListener('click', async () => {
             const text = textInput.value.trim();
             warningMsg.classList.remove('visible');
@@ -453,50 +516,12 @@
                     return;
                 }
 
-                let html = '';
-                for (const chunk of data.chunks) {
-                    const annotatedHtml = chunk.tokens ? renderTokens(chunk.tokens) : chunk.sentence;
-                    const translation = (chunk.translation || '')
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;');
-                    const escapedExplanation = chunk.explanation
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;');
-                    html += `<div class="grammar-chunk">`;
-                    html += `<div class="grammar-sentence">${annotatedHtml}`;
-                    if (translation) {
-                        html += `<span class="grammar-translation">${translation}</span>`;
-                    }
-                    html += `</div>`;
-                    html += `<div class="grammar-explanation">${escapedExplanation}</div>`;
-                    html += `<div class="grammar-characters">`;
-                    if (chunk.characters && chunk.characters.length > 0) {
-                        for (const c of chunk.characters) {
-                            const meaning = (c.meaning || '')
-                                .replace(/&/g, '&amp;')
-                                .replace(/</g, '&lt;')
-                                .replace(/>/g, '&gt;');
-                            const fam = (c.familiarity !== undefined && c.familiarity !== null) ? c.familiarity : 0;
-                            const colorClass = fam === 2 ? 'char-known' : fam === 1 ? 'char-unsure' : 'char-unknown';
-                            html += `<div class="char-row">`;
-                            if (c.id) {
-                                html += `<a href="/?char_id=${c.id}" class="char-hanzi ${colorClass}">${c.hanzi}</a>`;
-                            } else {
-                                html += `<span class="char-hanzi ${colorClass}">${c.hanzi}</span>`;
-                            }
-                            html += `<span class="char-pinyin">${c.pinyin || ''}</span>`;
-                            html += `<span class="char-meaning">${meaning}</span>`;
-                            html += `</div>`;
-                        }
-                    }
-                    html += `</div>`;
-                    html += `</div>`;
-                }
-
-                grammarOutput.innerHTML = html;
+                grammarOutput.innerHTML = buildAnalysisHtml(data.chunks);
                 grammarOutput.classList.add('visible');
+
+                // Save state to sessionStorage
+                sessionStorage.setItem('textLearnerInput', text);
+                sessionStorage.setItem('textLearnerChunks', JSON.stringify(data.chunks));
             } catch (err) {
                 console.error('Analysis error:', err);
                 warningMsg.textContent = `Request failed: ${err.message || err}`;
