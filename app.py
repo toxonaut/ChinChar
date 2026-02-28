@@ -1346,7 +1346,9 @@ def grammar_analysis():
                     info = char_map.get(ch)
                     if info:
                         familiarity = progress_map.get(info['id'], 0)
-                        chars.append({'id': info['id'], 'hanzi': ch, 'pinyin': info['pinyin'], 'meaning': info['meaning'], 'familiarity': familiarity})
+                        raw_pinyin = info['pinyin']
+                        converted_pinyin = '/'.join(_numbered_to_tonemarks(p.strip()) for p in raw_pinyin.split('/')) if raw_pinyin else ''
+                        chars.append({'id': info['id'], 'hanzi': ch, 'pinyin': converted_pinyin, 'meaning': info['meaning'], 'familiarity': familiarity})
                     else:
                         chars.append({'id': None, 'hanzi': ch, 'pinyin': '', 'meaning': '', 'familiarity': 0})
             chunk['characters'] = chars
