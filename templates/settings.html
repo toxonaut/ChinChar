@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Character Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .settings-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .settings-section {
+            background-color: #161b22;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .settings-section h2 {
+            font-size: 1.2rem;
+            color: #e1e4e8;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .settings-section p {
+            color: #8b949e;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .api-key-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            background-color: #0d1117;
+            color: #e1e4e8;
+            font-size: 0.95rem;
+            font-family: monospace;
+            margin-bottom: 12px;
+        }
+
+        .api-key-input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-save {
+            padding: 8px 20px;
+            background-color: #238636;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-save:hover {
+            background-color: #2ea043;
+        }
+
+        .btn-remove {
+            padding: 8px 20px;
+            background-color: transparent;
+            color: #f85149;
+            border: 1px solid #f85149;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-remove:hover {
+            background-color: #f85149;
+            color: white;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .status-badge.active {
+            background-color: rgba(35, 134, 54, 0.2);
+            color: #3fb950;
+            border: 1px solid #238636;
+        }
+
+        .status-badge.inactive {
+            background-color: rgba(139, 148, 158, 0.1);
+            color: #8b949e;
+            border: 1px solid #30363d;
+        }
+
+        .settings-msg {
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .settings-msg.success {
+            color: #3fb950;
+            display: block;
+        }
+
+        .settings-msg.error {
+            color: #f85149;
+            display: block;
+        }
+
+        .back-link {
+            color: #58a6ff;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover {
+            color: #79c0ff;
+            text-decoration: underline;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/cmaster_logo.jpg') }}" alt="Character Master Logo" class="logo">
+            </div>
+            <h1>Settings</h1>
+            <p>Manage your account preferences</p>
+            {% if current_user.is_authenticated %}
+            <div class="user-info">
+                <div class="user-profile" id="user-menu-toggle">
+                    {% if current_user.profile_pic %}
+                    <img src="{{ current_user.profile_pic }}" alt="{{ current_user.name }}" class="profile-pic">
+                    {% else %}
+                    <div class="user-avatar-placeholder">👤</div>
+                    {% endif %}
+                    <span class="user-name">{{ current_user.name or current_user.email }}</span>
+                    <span class="user-dropdown-arrow">▼</span>
+                </div>
+                <div class="user-dropdown" id="user-dropdown">
+                    <a href="/settings">⚙️ Settings</a>
+                    <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+                </div>
+            </div>
+            {% endif %}
+        </header>
+
+        <main>
+            <div class="nav-links">
+                <a href="/" class="back-link">← Back to Flashcards</a>
+            </div>
+
+            <div class="settings-container">
+                <div class="settings-section">
+                    <h2>OpenAI API Key</h2>
+                    <p>
+                        Add your own OpenAI API key to use the AI-powered features (grammar analysis, AI descriptions).
+                        Your key is stored encrypted and is never shared. If no key is set, the app's default key is used.
+                    </p>
+                    <div id="key-status">
+                        {% if has_api_key %}
+                        <span class="status-badge active">Your key is active</span>
+                        {% else %}
+                        <span class="status-badge inactive">Using default key</span>
+                        {% endif %}
+                    </div>
+                    <input type="password" id="api-key-input" class="api-key-input" placeholder="sk-..." autocomplete="off">
+                    <div class="btn-row">
+                        <button id="btn-save-key" class="btn-save">Save Key</button>
+                        {% if has_api_key %}
+                        <button id="btn-remove-key" class="btn-remove">Remove Key</button>
+                        {% endif %}
+                    </div>
+                    <div id="settings-msg" class="settings-msg"></div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Character Master - A Chinese Character Learning App</p>
+        </footer>
+    </div>
+
+    <script>
+        const apiKeyInput = document.getElementById('api-key-input');
+        const btnSave = document.getElementById('btn-save-key');
+        const btnRemove = document.getElementById('btn-remove-key');
+        const statusDiv = document.getElementById('key-status');
+        const msgDiv = document.getElementById('settings-msg');
+
+        function showMsg(text, type) {
+            msgDiv.textContent = text;
+            msgDiv.className = 'settings-msg ' + type;
+        }
+
+        btnSave.addEventListener('click', async () => {
+            const key = apiKeyInput.value.trim();
+            if (!key) {
+                showMsg('Please enter an API key.', 'error');
+                return;
+            }
+            if (!key.startsWith('sk-')) {
+                showMsg('OpenAI API keys start with "sk-". Please check your key.', 'error');
+                return;
+            }
+            btnSave.disabled = true;
+            btnSave.textContent = 'Saving...';
+            try {
+                const resp = await fetch('/api/settings/api-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: key })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    showMsg('API key saved successfully.', 'success');
+                    statusDiv.innerHTML = '<span class="status-badge active">Your key is active</span>';
+                    apiKeyInput.value = '';
+                    // Add remove button if not present
+                    if (!btnRemove) {
+                        location.reload();
+                    }
+                } else {
+                    showMsg('Failed to save key.', 'error');
+                }
+            } catch (e) {
+                showMsg('Error: ' + e.message, 'error');
+            } finally {
+                btnSave.disabled = false;
+                btnSave.textContent = 'Save Key';
+            }
+        });
+
+        if (btnRemove) {
+            btnRemove.addEventListener('click', async () => {
+                if (!confirm('Remove your API key? The app will use the default key instead.')) return;
+                btnRemove.disabled = true;
+                btnRemove.textContent = 'Removing...';
+                try {
+                    const resp = await fetch('/api/settings/api-key', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ api_key: '' })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        showMsg('API key removed.', 'success');
+                        statusDiv.innerHTML = '<span class="status-badge inactive">Using default key</span>';
+                        location.reload();
+                    }
+                } catch (e) {
+                    showMsg('Error: ' + e.message, 'error');
+                } finally {
+                    btnRemove.disabled = false;
+                    btnRemove.textContent = 'Remove Key';
+                }
+            });
+        }
+
+        // User dropdown menu toggle
+        const userToggle = document.getElementById('user-menu-toggle');
+        const userDropdown = document.getElementById('user-dropdown');
+        if (userToggle && userDropdown) {
+            userToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userDropdown.classList.toggle('visible');
+            });
+            document.addEventListener('click', () => {
+                userDropdown.classList.remove('visible');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -15,17 +15,23 @@
             <h1>Character Master</h1>
             <p>Learn Chinese characters with spaced repetition</p>
             
+            {% if current_user.is_authenticated %}
             <div class="user-info">
-                {% if current_user.is_authenticated %}
-                <div class="user-profile">
+                <div class="user-profile" id="user-menu-toggle">
                     {% if current_user.profile_pic %}
                     <img src="{{ current_user.profile_pic }}" alt="{{ current_user.name }}" class="profile-pic">
+                    {% else %}
+                    <div class="user-avatar-placeholder">👤</div>
                     {% endif %}
-                    <span class="user-name">{{ current_user.name }}</span>
-                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                    <span class="user-name">{{ current_user.name or current_user.email }}</span>
+                    <span class="user-dropdown-arrow">▼</span>
                 </div>
-                {% endif %}
+                <div class="user-dropdown" id="user-dropdown">
+                    <a href="/settings">⚙️ Settings</a>
+                    <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+                </div>
             </div>
+            {% endif %}
         </header>
 
         <main>
@@ -100,6 +106,20 @@
         </div>
     </div>
 
+    <script>
+        // User dropdown menu toggle
+        const toggle = document.getElementById('user-menu-toggle');
+        const dropdown = document.getElementById('user-dropdown');
+        if (toggle && dropdown) {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('visible');
+            });
+            document.addEventListener('click', () => {
+                dropdown.classList.remove('visible');
+            });
+        }
+    </script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

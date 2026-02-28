@@ -1,4 +1,5 @@
 import os
+import base64
 from flask import Flask, render_template, request, jsonify, make_response, redirect, url_for, session, flash, Response
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Character, UserProgress, get_next_character, update_progress, User, CharacterAIDescription, UserCharacterTuning
@@ -14,9 +15,31 @@ import requests
 import re as re_module
 import jieba
 from pycccedict.cccedict import CcCedict
+from cryptography.fernet import Fernet
 
 # Initialize CC-CEDICT dictionary once at module level
 _cccedict = CcCedict()
+
+def _get_fernet():
+    """Derive a Fernet key from the app's SECRET_KEY."""
+    secret = os.environ.get('SECRET_KEY', 'dev-secret-key')
+    key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
+    return Fernet(key)
+
+def _encrypt_api_key(plaintext: str) -> str:
+    return _get_fernet().encrypt(plaintext.encode()).decode()
+
+def _decrypt_api_key(ciphertext: str) -> str:
+    return _get_fernet().decrypt(ciphertext.encode()).decode()
+
+def _get_api_key(user=None):
+    """Return the user's own API key if set, otherwise fall back to the env variable."""
+    if user and user.encrypted_api_key:
+        try:
+            return _decrypt_api_key(user.encrypted_api_key)
+        except Exception:
+            pass
+    return os.environ.get('api_key') or os.environ.get('API_KEY')
 
 def _numbered_to_tonemarks(s: str) -> str:
     """Convert numbered pinyin like 'bei3 jing1' to tone marks like 'běi jīng'."""
@@ -380,6 +403,26 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+@app.route('/settings')
+@login_required
+def settings_page():
+    """Render the settings page"""
+    has_key = bool(current_user.encrypted_api_key)
+    return render_template('settings.html', has_api_key=has_key)
+
+@app.route('/api/settings/api-key', methods=['POST'])
+@login_required
+def save_api_key():
+    """Save or delete the user's OpenAI API key."""
+    data = request.get_json()
+    api_key = (data.get('api_key') or '').strip() if data else ''
+    if api_key:
+        current_user.encrypted_api_key = _encrypt_api_key(api_key)
+    else:
+        current_user.encrypted_api_key = None
+    db.session.commit()
+    return jsonify({'success': True, 'has_key': bool(current_user.encrypted_api_key)})
+
 @app.route('/')
 @login_required
 def index():
@@ -537,10 +580,10 @@ def get_ai_description(character_id):
         if existing:
             return jsonify({'character_id': character_id, 'content': existing.content, 'cached': True})
 
-        api_key = os.environ.get('api_key') or os.environ.get('API_KEY')
+        api_key = _get_api_key(current_user)
         if not api_key:
-            app.logger.error("AI description: No api_key or API_KEY env var found")
-            return jsonify({'error': 'Missing API key. Set api_key or API_KEY in environment variables.'}), 500
+            app.logger.error("AI description: No API key found (user or env)")
+            return jsonify({'error': 'No API key configured. Add your OpenAI key in Settings, or ask the admin to set one.'}), 500
 
         app.logger.info(f"AI description: Using API key starting with {api_key[:8]}...")
 
@@ -1201,9 +1244,9 @@ def grammar_analysis():
 
     text = data['text'].strip()
 
-    api_key = os.environ.get('api_key') or os.environ.get('API_KEY')
+    api_key = _get_api_key(current_user)
     if not api_key:
-        return jsonify({'error': 'Missing API key. Set api_key or API_KEY in environment variables.'}), 500
+        return jsonify({'error': 'No API key configured. Add your OpenAI key in Settings, or ask the admin to set one.'}), 500
 
     system_prompt = (
         'You are a Chinese language teacher. You break down Chinese text for learners. '
@@ -1584,6 +1627,14 @@ def ensure_db_initialized():
         db.session.execute(text('ALTER TABLE character ALTER COLUMN pinyin TYPE VARCHAR(200)'))
         db.session.commit()
         print("Widened meaning/pinyin columns")
+    except Exception:
+        db.session.rollback()
+
+    # Add encrypted_api_key column to user table if missing
+    try:
+        db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN encrypted_api_key TEXT"))
+        db.session.commit()
+        print("Added encrypted_api_key column to user table")
     except Exception:
         db.session.rollback()
 

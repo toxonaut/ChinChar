@@ -320,6 +320,23 @@
             </div>
             <h1>Text Learner</h1>
             <p>Paste Chinese text and hover over words to see pinyin and definitions</p>
+            {% if current_user.is_authenticated %}
+            <div class="user-info">
+                <div class="user-profile" id="user-menu-toggle">
+                    {% if current_user.profile_pic %}
+                    <img src="{{ current_user.profile_pic }}" alt="{{ current_user.name }}" class="profile-pic">
+                    {% else %}
+                    <div class="user-avatar-placeholder">👤</div>
+                    {% endif %}
+                    <span class="user-name">{{ current_user.name or current_user.email }}</span>
+                    <span class="user-dropdown-arrow">▼</span>
+                </div>
+                <div class="user-dropdown" id="user-dropdown">
+                    <a href="/settings">⚙️ Settings</a>
+                    <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+                </div>
+            </div>
+            {% endif %}
         </header>
 
         <main>
@@ -616,6 +633,19 @@
                 analyzeBtn.textContent = 'Analyze';
             }
         });
+
+        // User dropdown menu toggle
+        const userToggle = document.getElementById('user-menu-toggle');
+        const userDropdown = document.getElementById('user-dropdown');
+        if (userToggle && userDropdown) {
+            userToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userDropdown.classList.toggle('visible');
+            });
+            document.addEventListener('click', () => {
+                userDropdown.classList.remove('visible');
+            });
+        }
     </script>
 </body>
 </html>

@@ -13,6 +13,7 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     google_id = db.Column(db.String(100), unique=True, nullable=True)
+    encrypted_api_key = db.Column(db.Text, nullable=True)
     
     def __repr__(self):
         return f'<User {self.email}>'

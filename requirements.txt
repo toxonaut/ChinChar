@@ -10,3 +10,4 @@ requests==2.31.0
 psycopg2-binary==2.9.9
 jieba==0.42.1
 pycccedict==1.2.0
+cryptography==41.0.7

@@ -18,6 +18,7 @@ body {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
+    position: relative;
 }
 
 /* Header styles */
@@ -277,48 +278,103 @@ header p {
 
 /* User profile styles */
 .user-info {
-    margin-top: 15px;
-    display: flex;
-    justify-content: center;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 100;
 }
 
 .user-profile {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 15px;
+    gap: 8px;
+    padding: 6px 12px;
     background-color: #161b22;
     border: 1px solid #21262d;
     border-radius: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    user-select: none;
+}
+
+.user-profile:hover {
+    border-color: #30363d;
 }
 
 .profile-pic {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     object-fit: cover;
 }
 
+.user-avatar-placeholder {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #30363d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: #8b949e;
+}
+
 .user-name {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     color: #c9d1d9;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.logout-btn {
-    font-size: 0.8rem;
-    color: #f85149;
+.user-dropdown-arrow {
+    font-size: 0.6rem;
+    color: #8b949e;
+    margin-left: 2px;
+}
+
+.user-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    min-width: 160px;
+    overflow: hidden;
+    z-index: 200;
+}
+
+.user-dropdown.visible {
+    display: block;
+}
+
+.user-dropdown a {
+    display: block;
+    padding: 10px 16px;
+    color: #c9d1d9;
     text-decoration: none;
-    padding: 3px 8px;
-    border: 1px solid #f85149;
-    border-radius: 12px;
-    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    transition: background-color 0.15s;
 }
 
-.logout-btn:hover {
-    background-color: #f85149;
-    color: white;
+.user-dropdown a:hover {
+    background-color: #21262d;
+}
+
+.user-dropdown a.logout-link {
+    color: #f85149;
+    border-top: 1px solid #21262d;
+}
+
+.user-dropdown a.logout-link:hover {
+    background-color: rgba(248, 81, 73, 0.1);
 }
 
 /* Footer styles */
