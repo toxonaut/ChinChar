@@ -408,7 +408,7 @@ def logout():
 def settings_page():
     """Render the settings page"""
     has_key = bool(current_user.encrypted_api_key)
-    return render_template('settings.html', has_api_key=has_key)
+    return render_template('settings.html', has_api_key=has_key, translation_popups=current_user.translation_popups)
 
 @app.route('/api/settings/api-key', methods=['POST'])
 @login_required
@@ -422,6 +422,15 @@ def save_api_key():
         current_user.encrypted_api_key = None
     db.session.commit()
     return jsonify({'success': True, 'has_key': bool(current_user.encrypted_api_key)})
+
+@app.route('/api/settings/translation-popups', methods=['POST'])
+@login_required
+def save_translation_popups():
+    """Save the user's translation popups preference."""
+    data = request.get_json()
+    current_user.translation_popups = bool(data.get('enabled', True))
+    db.session.commit()
+    return jsonify({'success': True, 'enabled': current_user.translation_popups})
 
 @app.route('/')
 @login_required
@@ -1229,7 +1238,7 @@ def import_export_page():
 @login_required
 def text_learner_page():
     """Render the text learner page"""
-    return render_template('text_learner.html')
+    return render_template('text_learner.html', translation_popups=current_user.translation_popups)
 
 @app.route('/api/grammar-analysis', methods=['POST'])
 @login_required
@@ -1634,6 +1643,14 @@ def ensure_db_initialized():
         db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN encrypted_api_key TEXT"))
         db.session.commit()
         print("Added encrypted_api_key column to user table")
+    except Exception:
+        db.session.rollback()
+
+    # Add translation_popups column to user table if missing
+    try:
+        db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN translation_popups BOOLEAN NOT NULL DEFAULT TRUE"))
+        db.session.commit()
+        print("Added translation_popups column to user table")
     except Exception:
         db.session.rollback()
 

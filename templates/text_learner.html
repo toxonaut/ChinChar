@@ -161,6 +161,35 @@
             color: #484f58;
         }
 
+        /* Inline pinyin (ruby) mode — when popups are disabled */
+        .ruby-mode .token-chinese {
+            cursor: default;
+        }
+
+        .ruby-mode .token-chinese:hover {
+            background-color: transparent;
+        }
+
+        .ruby-mode .token-popup {
+            display: none !important;
+        }
+
+        .ruby-mode .grammar-sentence {
+            font-size: 1.5rem;
+            line-height: 2.8;
+        }
+
+        .ruby-mode ruby {
+            ruby-position: over;
+        }
+
+        .ruby-mode rt {
+            font-size: 0.45em;
+            color: #ff6b6b;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+
         .back-link {
             display: inline-block;
             margin-bottom: 20px;
@@ -366,6 +395,12 @@
         const analyzeBtn = document.getElementById('analyze-btn');
         const warningMsg = document.getElementById('warning-msg');
         const grammarOutput = document.getElementById('grammar-output');
+        const translationPopups = {{ 'true' if translation_popups else 'false' }};
+
+        // Apply ruby-mode class when popups are disabled
+        if (!translationPopups) {
+            grammarOutput.classList.add('ruby-mode');
+        }
 
         function renderTokens(tokens) {
             let html = '';
@@ -373,7 +408,18 @@
                 if (tok.type === 'punctuation') {
                     const escaped = tok.token.replace(/\n/g, '<br>');
                     html += `<span class="token-punct">${escaped}</span>`;
+                } else if (!translationPopups) {
+                    // Ruby mode: show pinyin above each character
+                    const chars = [...tok.token];
+                    const pinyinParts = tok.pinyin ? tok.pinyin.trim().split(/\s+/) : [];
+                    let rubyHtml = '';
+                    for (let i = 0; i < chars.length; i++) {
+                        const py = pinyinParts[i] || '';
+                        rubyHtml += `<ruby>${chars[i]}<rt>${py}</rt></ruby>`;
+                    }
+                    html += `<span class="token-chinese">${rubyHtml}</span>`;
                 } else {
+                    // Popup mode: hover to see pinyin and definitions
                     let popupContent = `<div class="popup-hanzi">${tok.token}</div>`;
                     if (tok.pinyin) {
                         popupContent += `<div class="popup-pinyin">${tok.pinyin}</div>`;
