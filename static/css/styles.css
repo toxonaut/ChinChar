@@ -278,10 +278,10 @@ header p {
 
 /* User profile styles */
 .user-info {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    z-index: 100;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
 }
 
 .user-profile {
