@@ -214,6 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Failed to parse server response');
             }
 
+            if (data && data.no_key) {
+                window.location.href = '/settings';
+                return;
+            }
+
             if (!response.ok || (data && data.error)) {
                 throw new Error((data && data.error) || 'Failed to load AI description');
             }
