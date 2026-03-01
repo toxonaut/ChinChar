@@ -33,13 +33,13 @@ def _decrypt_api_key(ciphertext: str) -> str:
     return _get_fernet().decrypt(ciphertext.encode()).decode()
 
 def _get_api_key(user=None):
-    """Return the user's own API key if set, otherwise fall back to the env variable."""
+    """Return the user's own API key if set, or None."""
     if user and user.encrypted_api_key:
         try:
             return _decrypt_api_key(user.encrypted_api_key)
         except Exception:
             pass
-    return os.environ.get('api_key') or os.environ.get('API_KEY')
+    return None
 
 def _numbered_to_tonemarks(s: str) -> str:
     """Convert numbered pinyin like 'bei3 jing1' to tone marks like 'běi jīng'."""
@@ -582,8 +582,7 @@ def get_ai_description(character_id):
 
         api_key = _get_api_key(current_user)
         if not api_key:
-            app.logger.error("AI description: No API key found (user or env)")
-            return jsonify({'error': 'No API key configured. Add your OpenAI key in Settings, or ask the admin to set one.'}), 500
+            return jsonify({'error': 'No API key configured. Please add your OpenAI API key in Settings.', 'no_key': True}), 400
 
         app.logger.info(f"AI description: Using API key starting with {api_key[:8]}...")
 
@@ -1246,7 +1245,7 @@ def grammar_analysis():
 
     api_key = _get_api_key(current_user)
     if not api_key:
-        return jsonify({'error': 'No API key configured. Add your OpenAI key in Settings, or ask the admin to set one.'}), 500
+        return jsonify({'error': 'No API key configured. Please add your OpenAI API key in Settings.', 'no_key': True}), 400
 
     system_prompt = (
         'You are a Chinese language teacher. You break down Chinese text for learners. '

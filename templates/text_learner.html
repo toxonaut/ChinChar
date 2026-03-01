@@ -552,14 +552,17 @@
 
                 if (!response.ok) {
                     const rawText = await response.text();
-                    let errMsg;
+                    let errData;
                     try {
-                        const errData = JSON.parse(rawText);
-                        errMsg = errData.error || rawText.substring(0, 300);
+                        errData = JSON.parse(rawText);
                     } catch (e) {
-                        errMsg = rawText.substring(0, 300);
+                        errData = { error: rawText.substring(0, 300) };
                     }
-                    warningMsg.textContent = `Error (HTTP ${response.status}): ${errMsg}`;
+                    if (errData.no_key) {
+                        window.location.href = '/settings';
+                        return;
+                    }
+                    warningMsg.textContent = `Error (HTTP ${response.status}): ${errData.error || rawText.substring(0, 300)}`;
                     warningMsg.classList.add('visible');
                     return;
                 }
