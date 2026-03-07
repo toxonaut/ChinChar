@@ -20,7 +20,7 @@
 
         .test-header {
             display: grid;
-            grid-template-columns: 80px 1fr 70px 70px;
+            grid-template-columns: 1fr 70px 70px;
             padding: 12px 16px;
             background-color: #1c2128;
             border-bottom: 1px solid #21262d;
@@ -31,14 +31,14 @@
             letter-spacing: 0.05em;
         }
 
-        .test-header span:nth-child(3),
-        .test-header span:nth-child(4) {
+        .test-header span:nth-child(2),
+        .test-header span:nth-child(3) {
             text-align: center;
         }
 
         .test-row {
             display: grid;
-            grid-template-columns: 80px 1fr 70px 70px;
+            grid-template-columns: 1fr 70px 70px;
             align-items: center;
             padding: 14px 16px;
             border-bottom: 1px solid #21262d;
@@ -65,27 +65,43 @@
             font-size: 2rem;
             font-weight: 700;
             color: #f85149;
+            cursor: pointer;
+            position: relative;
+            display: inline-block;
         }
 
-        .test-info {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            min-width: 0;
+        .test-hanzi:hover {
+            color: #ff8080;
         }
 
-        .test-pinyin {
-            font-size: 0.9rem;
+        .test-hanzi .test-popup {
+            display: none;
+            position: fixed;
+            background-color: #1c2128;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 12px 16px;
+            min-width: 180px;
+            max-width: 300px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            text-align: left;
+            white-space: normal;
+            pointer-events: none;
+            font-weight: 400;
+        }
+
+        .test-popup-pinyin {
             color: #ff6b6b;
-            font-weight: 500;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
         }
 
-        .test-meaning {
-            font-size: 0.8rem;
+        .test-popup-meaning {
             color: #8b949e;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 0.85rem;
+            line-height: 1.5;
         }
 
         .test-check {
@@ -228,7 +244,6 @@
                 <div id="test-grid" class="test-grid">
                     <div class="test-header">
                         <span>Char</span>
-                        <span>Info</span>
                         <span>Know</span>
                         <span>Unsure</span>
                     </div>
@@ -265,8 +280,8 @@
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;');
                 html += `<div class="test-row" data-id="${c.id}">`;
-                html += `<span class="test-hanzi">${c.hanzi}</span>`;
-                html += `<span class="test-info"><span class="test-pinyin">${c.pinyin || ''}</span><span class="test-meaning">${meaning}</span></span>`;
+                const pinyin = (c.pinyin || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                html += `<span class="test-hanzi">${c.hanzi}<span class="test-popup"><div class="test-popup-pinyin">${pinyin}</div><div class="test-popup-meaning">${meaning}</div></span></span>`;
                 html += `<span class="test-check"><input type="checkbox" class="cb-know" data-id="${c.id}"></span>`;
                 html += `<span class="test-check unsure-check"><input type="checkbox" class="cb-unsure" data-id="${c.id}"></span>`;
                 html += `</div>`;
@@ -363,6 +378,34 @@
                 btnSave.textContent = 'Save';
             }
         });
+
+        // Popup positioning for character hover
+        document.addEventListener('mouseenter', (e) => {
+            const hanzi = e.target.closest('.test-hanzi');
+            if (!hanzi) return;
+            const popup = hanzi.querySelector('.test-popup');
+            if (!popup) return;
+            popup.style.display = 'block';
+            const rect = hanzi.getBoundingClientRect();
+            const popupRect = popup.getBoundingClientRect();
+            let left = rect.left + rect.width / 2 - popupRect.width / 2;
+            let top = rect.top - popupRect.height - 6;
+            if (top < 4) top = rect.bottom + 6;
+            if (left < 4) left = 4;
+            if (left + popupRect.width > window.innerWidth - 4) {
+                left = window.innerWidth - popupRect.width - 4;
+            }
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
+        }, true);
+
+        document.addEventListener('mouseleave', (e) => {
+            const hanzi = e.target.closest('.test-hanzi');
+            if (!hanzi) return;
+            const popup = hanzi.querySelector('.test-popup');
+            if (!popup) return;
+            popup.style.display = 'none';
+        }, true);
 
         // User dropdown menu toggle
         const userToggle = document.getElementById('user-menu-toggle');
