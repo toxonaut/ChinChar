@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Unknown Characters - Character Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .test-grid {
+            background-color: #161b22;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .test-header {
+            display: grid;
+            grid-template-columns: 80px 1fr 70px 70px;
+            padding: 12px 16px;
+            background-color: #1c2128;
+            border-bottom: 1px solid #21262d;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .test-header span:nth-child(3),
+        .test-header span:nth-child(4) {
+            text-align: center;
+        }
+
+        .test-row {
+            display: grid;
+            grid-template-columns: 80px 1fr 70px 70px;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #21262d;
+            transition: background-color 0.15s;
+        }
+
+        .test-row:last-child {
+            border-bottom: none;
+        }
+
+        .test-row:hover {
+            background-color: #1c2128;
+        }
+
+        .test-row.marked-know {
+            background-color: rgba(35, 134, 54, 0.08);
+        }
+
+        .test-row.marked-unsure {
+            background-color: rgba(210, 153, 34, 0.08);
+        }
+
+        .test-hanzi {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #f85149;
+        }
+
+        .test-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .test-pinyin {
+            font-size: 0.9rem;
+            color: #ff6b6b;
+            font-weight: 500;
+        }
+
+        .test-meaning {
+            font-size: 0.8rem;
+            color: #8b949e;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .test-check {
+            text-align: center;
+        }
+
+        .test-check input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #238636;
+        }
+
+        .test-check.unsure-check input[type="checkbox"] {
+            accent-color: #d29922;
+        }
+
+        .test-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 24px;
+        }
+
+        .btn-save-test {
+            padding: 12px 32px;
+            background-color: #238636;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-save-test:hover {
+            background-color: #2ea043;
+        }
+
+        .btn-save-test:disabled {
+            background-color: #30363d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+
+        .btn-back-test {
+            padding: 12px 32px;
+            background-color: transparent;
+            color: #8b949e;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-back-test:hover {
+            border-color: #8b949e;
+            color: #e1e4e8;
+        }
+
+        .test-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8b949e;
+            font-size: 1rem;
+        }
+
+        .test-summary {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.9rem;
+            color: #8b949e;
+        }
+
+        .test-summary .count-know {
+            color: #3fb950;
+            font-weight: 600;
+        }
+
+        .test-summary .count-unsure {
+            color: #d29922;
+            font-weight: 600;
+        }
+
+        .back-link {
+            color: #58a6ff;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover {
+            color: #79c0ff;
+            text-decoration: underline;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/cmaster_logo.jpg') }}" alt="Character Master Logo" class="logo">
+            </div>
+            <h1>Test Unknown Characters</h1>
+            <p>Mark characters you know or are unsure about</p>
+            {% if current_user.is_authenticated %}
+            <div class="user-info">
+                <div class="user-profile" id="user-menu-toggle">
+                    {% if current_user.profile_pic %}
+                    <img src="{{ current_user.profile_pic }}" alt="{{ current_user.name }}" class="profile-pic">
+                    {% else %}
+                    <div class="user-avatar-placeholder">👤</div>
+                    {% endif %}
+                    <span class="user-name">{{ current_user.name or current_user.email }}</span>
+                    <span class="user-dropdown-arrow">▼</span>
+                </div>
+                <div class="user-dropdown" id="user-dropdown">
+                    <a href="/settings">⚙️ Settings</a>
+                    <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+                </div>
+            </div>
+            {% endif %}
+        </header>
+
+        <main>
+            <div class="nav-links">
+                <a href="/text-learner" class="back-link">← Back to Text Learner</a>
+            </div>
+
+            <div class="test-container">
+                <div id="test-grid" class="test-grid">
+                    <div class="test-header">
+                        <span>Char</span>
+                        <span>Info</span>
+                        <span>Know</span>
+                        <span>Unsure</span>
+                    </div>
+                    <div id="test-rows"></div>
+                </div>
+
+                <div id="test-summary" class="test-summary"></div>
+
+                <div class="test-actions">
+                    <a href="/text-learner" class="btn-back-test">Cancel</a>
+                    <button id="btn-save" class="btn-save-test" disabled>Save</button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Character Master - A Chinese Character Learning App</p>
+        </footer>
+    </div>
+
+    <script>
+        const chars = JSON.parse(sessionStorage.getItem('testUnknownChars') || '[]');
+        const testRows = document.getElementById('test-rows');
+        const btnSave = document.getElementById('btn-save');
+        const testSummary = document.getElementById('test-summary');
+
+        if (chars.length === 0) {
+            testRows.innerHTML = '<div class="test-empty">No unknown characters to test.</div>';
+        } else {
+            let html = '';
+            for (const c of chars) {
+                const meaning = (c.meaning || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                html += `<div class="test-row" data-id="${c.id}">`;
+                html += `<span class="test-hanzi">${c.hanzi}</span>`;
+                html += `<span class="test-info"><span class="test-pinyin">${c.pinyin || ''}</span><span class="test-meaning">${meaning}</span></span>`;
+                html += `<span class="test-check"><input type="checkbox" class="cb-know" data-id="${c.id}"></span>`;
+                html += `<span class="test-check unsure-check"><input type="checkbox" class="cb-unsure" data-id="${c.id}"></span>`;
+                html += `</div>`;
+            }
+            testRows.innerHTML = html;
+        }
+
+        // Mutual exclusion: checking Know unchecks Unsure and vice versa
+        testRows.addEventListener('change', (e) => {
+            const cb = e.target;
+            const row = cb.closest('.test-row');
+            if (!row) return;
+
+            if (cb.classList.contains('cb-know') && cb.checked) {
+                row.querySelector('.cb-unsure').checked = false;
+                row.classList.add('marked-know');
+                row.classList.remove('marked-unsure');
+            } else if (cb.classList.contains('cb-unsure') && cb.checked) {
+                row.querySelector('.cb-know').checked = false;
+                row.classList.add('marked-unsure');
+                row.classList.remove('marked-know');
+            } else {
+                row.classList.remove('marked-know', 'marked-unsure');
+            }
+
+            updateSummary();
+        });
+
+        function updateSummary() {
+            const knowCount = testRows.querySelectorAll('.cb-know:checked').length;
+            const unsureCount = testRows.querySelectorAll('.cb-unsure:checked').length;
+            const total = knowCount + unsureCount;
+
+            if (total > 0) {
+                testSummary.innerHTML = `<span class="count-know">${knowCount}</span> know, <span class="count-unsure">${unsureCount}</span> unsure`;
+                btnSave.disabled = false;
+            } else {
+                testSummary.innerHTML = '';
+                btnSave.disabled = true;
+            }
+        }
+
+        btnSave.addEventListener('click', async () => {
+            const updates = [];
+
+            testRows.querySelectorAll('.cb-know:checked').forEach(cb => {
+                updates.push({ character_id: parseInt(cb.dataset.id), familiarity: 2 });
+            });
+
+            testRows.querySelectorAll('.cb-unsure:checked').forEach(cb => {
+                updates.push({ character_id: parseInt(cb.dataset.id), familiarity: 1 });
+            });
+
+            if (updates.length === 0) return;
+
+            btnSave.disabled = true;
+            btnSave.textContent = 'Saving...';
+
+            try {
+                const resp = await fetch('/api/batch-progress', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ updates })
+                });
+
+                if (resp.ok) {
+                    // Update the stored chunks with new familiarity
+                    const savedChunks = sessionStorage.getItem('textLearnerChunks');
+                    if (savedChunks) {
+                        const famMap = {};
+                        for (const u of updates) {
+                            famMap[u.character_id] = u.familiarity;
+                        }
+                        const chunks = JSON.parse(savedChunks);
+                        for (const chunk of chunks) {
+                            if (chunk.characters) {
+                                for (const c of chunk.characters) {
+                                    if (c.id && famMap[c.id] !== undefined) {
+                                        c.familiarity = famMap[c.id];
+                                    }
+                                }
+                            }
+                        }
+                        sessionStorage.setItem('textLearnerChunks', JSON.stringify(chunks));
+                    }
+                    sessionStorage.removeItem('testUnknownChars');
+                    window.location.href = '/text-learner';
+                } else {
+                    throw new Error('Save failed');
+                }
+            } catch (e) {
+                alert('Error saving progress. Please try again.');
+                btnSave.disabled = false;
+                btnSave.textContent = 'Save';
+            }
+        });
+
+        // User dropdown menu toggle
+        const userToggle = document.getElementById('user-menu-toggle');
+        const userDropdown = document.getElementById('user-dropdown');
+        if (userToggle && userDropdown) {
+            userToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userDropdown.classList.toggle('visible');
+            });
+            document.addEventListener('click', () => {
+                userDropdown.classList.remove('visible');
+            });
+        }
+    </script>
+</body>
+</html>

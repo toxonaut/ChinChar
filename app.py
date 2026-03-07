@@ -1240,6 +1240,29 @@ def text_learner_page():
     """Render the text learner page"""
     return render_template('text_learner.html', translation_popups=current_user.translation_popups)
 
+@app.route('/test-unknown-chars')
+@login_required
+def test_unknown_chars_page():
+    """Render the test unknown characters page"""
+    return render_template('test_unknown_chars.html')
+
+@app.route('/api/batch-progress', methods=['POST'])
+@login_required
+def batch_update_progress():
+    """Batch update familiarity for multiple characters at once."""
+    data = request.get_json()
+    if not data or not isinstance(data.get('updates'), list):
+        return jsonify({'error': 'Expected a list of updates'}), 400
+
+    for item in data['updates']:
+        char_id = item.get('character_id')
+        fam = item.get('familiarity')
+        if char_id is None or fam not in [0, 1, 2]:
+            continue
+        update_progress(current_user.id, char_id, fam)
+
+    return jsonify({'success': True})
+
 @app.route('/api/grammar-analysis', methods=['POST'])
 @login_required
 def grammar_analysis():

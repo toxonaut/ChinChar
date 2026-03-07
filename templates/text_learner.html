@@ -191,6 +191,28 @@
             padding-bottom: 2px;
         }
 
+        .test-unknown-btn {
+            display: none;
+            margin: 20px auto;
+            padding: 12px 28px;
+            background-color: #da3633;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .test-unknown-btn:hover {
+            background-color: #f85149;
+        }
+
+        .test-unknown-btn.visible {
+            display: block;
+        }
+
         .back-link {
             display: inline-block;
             margin-bottom: 20px;
@@ -383,6 +405,7 @@
                 </div>
 
                 <div id="grammar-output" class="grammar-output"></div>
+                <button id="test-unknown-btn" class="test-unknown-btn">Test unknown chars</button>
             </div>
         </main>
 
@@ -396,7 +419,33 @@
         const analyzeBtn = document.getElementById('analyze-btn');
         const warningMsg = document.getElementById('warning-msg');
         const grammarOutput = document.getElementById('grammar-output');
+        const testUnknownBtn = document.getElementById('test-unknown-btn');
         const translationPopups = {{ 'true' if translation_popups else 'false' }};
+
+        // Collect unique unknown (familiarity 0) characters from chunks and show/hide button
+        function updateTestUnknownButton(chunks) {
+            const seen = new Set();
+            const unknowns = [];
+            for (const chunk of chunks) {
+                if (!chunk.characters) continue;
+                for (const c of chunk.characters) {
+                    const fam = (c.familiarity !== undefined && c.familiarity !== null) ? c.familiarity : 0;
+                    if (fam === 0 && c.id && !seen.has(c.id)) {
+                        seen.add(c.id);
+                        unknowns.push({ id: c.id, hanzi: c.hanzi, pinyin: c.pinyin || '', meaning: c.meaning || '' });
+                    }
+                }
+            }
+            if (unknowns.length > 0) {
+                testUnknownBtn.classList.add('visible');
+                testUnknownBtn.onclick = () => {
+                    sessionStorage.setItem('testUnknownChars', JSON.stringify(unknowns));
+                    window.location.href = '/test-unknown-chars';
+                };
+            } else {
+                testUnknownBtn.classList.remove('visible');
+            }
+        }
 
         // Apply ruby-mode class when popups are disabled
         if (!translationPopups) {
@@ -569,6 +618,7 @@
 
                     grammarOutput.innerHTML = buildAnalysisHtml(chunks);
                     grammarOutput.classList.add('visible');
+                    updateTestUnknownButton(chunks);
                 } catch (e) {
                     // Ignore corrupt data
                 }
@@ -674,6 +724,7 @@
                 // Save state to sessionStorage
                 sessionStorage.setItem('textLearnerInput', text);
                 sessionStorage.setItem('textLearnerChunks', JSON.stringify(allChunks));
+                updateTestUnknownButton(allChunks);
             } catch (err) {
                 console.error('Analysis error:', err);
                 warningMsg.textContent = `Request failed: ${err.message || err}`;
