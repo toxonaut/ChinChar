@@ -598,6 +598,7 @@ def get_ai_description(character_id):
         system_prompt = 'You come up with example words and sentences for a chinese dictionary app. Just show the answers for use in a dictionary app. no "of course" etc. Start the answers with a short description of the character, then examples.'
         user_prompt = f'show the most common words using the character {character.hanzi} including example sentences'
 
+        app.logger.info("AI description: Calling OpenAI chat/completions")
         response = requests.post(
             'https://api.openai.com/v1/chat/completions',
             headers={
@@ -613,7 +614,7 @@ def get_ai_description(character_id):
                 'temperature': 0.7,
                 'max_tokens': 800
             },
-            timeout=30
+            timeout=(10, 40)
         )
 
         if response.status_code != 200:
@@ -632,6 +633,12 @@ def get_ai_description(character_id):
         db.session.commit()
 
         return jsonify({'character_id': character_id, 'content': content, 'cached': False})
+    except requests.exceptions.Timeout:
+        app.logger.error("AI description: OpenAI request timed out")
+        return jsonify({'error': 'OpenAI request timed out. Please try again.', 'timeout': True}), 504
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"AI description: OpenAI request failed: {e}")
+        return jsonify({'error': 'Network error while contacting OpenAI. Please try again.'}), 502
     except Exception as e:
         app.logger.error(f"Error getting AI description: {e}")
         db.session.rollback()
@@ -1240,29 +1247,6 @@ def text_learner_page():
     """Render the text learner page"""
     return render_template('text_learner.html', translation_popups=current_user.translation_popups)
 
-@app.route('/test-unknown-chars')
-@login_required
-def test_unknown_chars_page():
-    """Render the test unknown characters page"""
-    return render_template('test_unknown_chars.html')
-
-@app.route('/api/batch-progress', methods=['POST'])
-@login_required
-def batch_update_progress():
-    """Batch update familiarity for multiple characters at once."""
-    data = request.get_json()
-    if not data or not isinstance(data.get('updates'), list):
-        return jsonify({'error': 'Expected a list of updates'}), 400
-
-    for item in data['updates']:
-        char_id = item.get('character_id')
-        fam = item.get('familiarity')
-        if char_id is None or fam not in [0, 1, 2]:
-            continue
-        update_progress(current_user.id, char_id, fam)
-
-    return jsonify({'success': True})
-
 @app.route('/api/grammar-analysis', methods=['POST'])
 @login_required
 def grammar_analysis():
@@ -1308,6 +1292,7 @@ def grammar_analysis():
 
     def _call_llm(batch_text):
         user_prompt = f'Analyze this Chinese text:\n\n{batch_text}'
+        app.logger.info(f"Grammar analysis: calling OpenAI for batch with {len(batch_text)} chars")
         resp = requests.post(
             'https://api.openai.com/v1/chat/completions',
             headers={
@@ -1323,7 +1308,7 @@ def grammar_analysis():
                 'temperature': 0.4,
                 'max_tokens': 4096
             },
-            timeout=120
+            timeout=(10, 60)
         )
         if resp.status_code != 200:
             try:
