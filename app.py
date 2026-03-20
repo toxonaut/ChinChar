@@ -1253,6 +1253,12 @@ def text_learner_page():
     translation_popups = getattr(current_user, 'translation_popups', True)
     return render_template('text_learner.html', translation_popups=translation_popups)
 
+@app.route('/test-unknown-chars')
+@login_required
+def test_unknown_chars_page():
+    """Render the test unknown characters page"""
+    return render_template('test_unknown_chars.html')
+
 @app.route('/api/grammar-analysis', methods=['POST'])
 @login_required
 def grammar_analysis():

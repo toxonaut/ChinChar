@@ -440,7 +440,7 @@
                 testUnknownBtn.classList.add('visible');
                 testUnknownBtn.onclick = () => {
                     sessionStorage.setItem('testUnknownChars', JSON.stringify(unknowns));
-                    window.location.href = '/test-unknown-chars';
+                    window.location.href = '{{ url_for('test_unknown_chars_page') }}';
                 };
             } else {
                 testUnknownBtn.classList.remove('visible');
