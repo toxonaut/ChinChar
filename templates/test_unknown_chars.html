@@ -370,10 +370,18 @@
                     sessionStorage.removeItem('testUnknownChars');
                     window.location.href = '/text-learner';
                 } else {
-                    throw new Error('Save failed');
+                    const raw = await resp.text();
+                    let msg = raw;
+                    try {
+                        const data = raw ? JSON.parse(raw) : null;
+                        if (data && data.error) msg = data.error;
+                    } catch (e) {
+                        // keep raw
+                    }
+                    throw new Error(msg || `Save failed (HTTP ${resp.status})`);
                 }
             } catch (e) {
-                alert('Error saving progress. Please try again.');
+                alert('Error saving progress: ' + (e && e.message ? e.message : 'Please try again.'));
                 btnSave.disabled = false;
                 btnSave.textContent = 'Save';
             }

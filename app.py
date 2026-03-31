@@ -725,14 +725,62 @@ def update_user_progress():
         if not success:
             print(f"Error: Failed to update progress for character_id={character_id}")
             return jsonify({'error': 'Failed to update progress'}), 500
-        
-        print("Success: Progress updated successfully")
-        return jsonify({'success': True})
+
+        return jsonify({
+            'success': True,
+            'message': 'Progress updated successfully',
+            'character_id': character_id,
+            'familiarity': familiarity
+        })
     except Exception as e:
-        import traceback
-        print(f"Error in update_user_progress: {e}")
-        traceback.print_exc()
+        print(f"Error in update_user_progress: {str(e)}")
+        db.session.rollback()
         return jsonify({'error': 'An error occurred while updating progress'}), 500
+
+
+@app.route('/api/batch-progress', methods=['POST'])
+@login_required
+def batch_update_user_progress():
+    """Batch update the user's progress for multiple characters.
+
+    Expected JSON body:
+      {"updates": [{"character_id": 123, "familiarity": 2}, ...]}
+    """
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data.get('updates'), list):
+            return jsonify({'error': 'Expected JSON body with an updates list'}), 400
+
+        user_id = current_user.id
+        updates = data['updates']
+
+        results = {
+            'success': 0,
+            'failed': 0,
+            'total': len(updates),
+        }
+
+        for item in updates:
+            character_id = item.get('character_id')
+            familiarity = item.get('familiarity')
+            if not character_id or familiarity not in [0, 1, 2]:
+                results['failed'] += 1
+                continue
+
+            ok = update_progress(user_id, character_id, familiarity)
+            if ok:
+                results['success'] += 1
+            else:
+                results['failed'] += 1
+
+        if results['success'] == 0 and results['total'] > 0:
+            return jsonify({'error': 'Failed to update progress', 'results': results}), 500
+
+        return jsonify({'success': True, 'results': results})
+    except Exception as e:
+        app.logger.error(f"Error in batch_update_user_progress: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'An error occurred while batch updating progress'}), 500
 
 @app.route('/api/bulk-import', methods=['POST'])
 @login_required
